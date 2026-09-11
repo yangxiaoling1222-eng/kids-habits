@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#fef3c7"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景圆角矩形 -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- 装饰圆点 -->
+  <circle cx="100" cy="120" r="18" fill="#fff" opacity="0.3"/>
+  <circle cx="420" cy="380" r="22" fill="#fff" opacity="0.25"/>
+  <circle cx="400" cy="100" r="14" fill="#fff" opacity="0.3"/>
+  <!-- 中心圆形 -->
+  <circle cx="256" cy="256" r="160" fill="url(#check)"/>
+  <!-- 勾 -->
+  <path d="M 170 260 L 230 320 L 350 190" stroke="#fb923c" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 星星 -->
+  <path d="M 256 100 L 268 132 L 302 132 L 276 152 L 286 184 L 256 164 L 226 184 L 236 152 L 210 132 L 244 132 Z" fill="#fde047"/>
+  <path d="M 130 400 L 138 420 L 158 420 L 142 432 L 148 452 L 130 440 L 112 452 L 118 432 L 102 420 L 122 420 Z" fill="#fde047"/>
+</svg>

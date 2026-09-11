@@ -1,0 +1,20 @@
+{
+  "name": "宝贝打卡 - 孩子习惯养成",
+  "short_name": "宝贝打卡",
+  "description": "记录孩子每天的任务完成情况，帮助养成好习惯",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff7ed",
+  "theme_color": "#fb923c",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

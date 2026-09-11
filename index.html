@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#fb923c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="宝贝打卡">
+  <title>宝贝打卡 - 孩子习惯养成</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+    * { -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    [x-cloak] { display: none !important; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    .task-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .task-card:active { transform: scale(0.98); }
+    .task-card.completed {
+      background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+      border-color: #22c55e;
+    }
+    .task-card.completed .task-name { color: #064e3b; text-decoration: line-through; opacity: 0.7; }
+    .check-btn {
+      transition: all 0.2s;
+    }
+    .check-btn:active { transform: scale(0.9); }
+    .nav-item.active { color: #fb923c; }
+    .nav-item.active .nav-dot {
+      width: 6px; height: 6px; background: #fb923c; border-radius: 50%; margin: 4px auto 0;
+    }
+    .bounce-in { animation: bounceIn 0.3s ease; }
+    @keyframes bounceIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    /* 滚动条美化 */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: #fb923c; border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body x-data="app()" x-init="init()" class="bg-gradient-to-b from-orange-50 via-yellow-50 to-pink-50 min-h-screen pb-24 safe-bottom">
+
+  <!-- 顶部 Header -->
+  <header class="sticky top-0 z-20 bg-white/85 backdrop-blur-lg border-b border-orange-100 px-4 py-3" style="padding-top: max(0.75rem, env(safe-area-inset-top));">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">
+          宝贝打卡 ✨
+        </h1>
+        <p class="text-xs text-gray-500 mt-0.5" x-text="formatDate(today)"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <template x-if="notifPermission === 'default'">
+          <button @click="requestNotificationPermission()" class="text-xs bg-gradient-to-r from-orange-400 to-pink-400 text-white px-3 py-1.5 rounded-full font-medium shadow-sm">
+            🔔 开启提醒
+          </button>
+        </template>
+        <template x-if="notifPermission === 'granted'">
+          <span class="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-full">
+            🔔 已开启
+          </span>
+        </template>
+        <template x-if="notifPermission === 'denied'">
+          <span class="text-xs text-gray-400">🔕 已关闭</span>
+        </template>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="px-4 py-4 max-w-2xl mx-auto">
+
+    <!-- ========== 今日任务页 ========== -->
+    <div x-show="page === 'today'" x-cloak>
+      <!-- 头像切换 -->
+      <div class="flex justify-center gap-6 mb-4 pt-1">
+        <template x-for="child in children" :key="child.id">
+          <button @click="switchChild(child.id)" class="relative flex flex-col items-center gap-1">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center text-3xl transition-all duration-200 border-4"
+                 :class="activeChildId === child.id
+                         ? 'shadow-lg scale-105'
+                         : 'opacity-45 grayscale border-transparent bg-gray-100'"
+                 :style="activeChildId === child.id
+                         ? `border-color: ${child.color}; background: linear-gradient(135deg, ${child.color}22, ${child.color}44);`
+                         : ''">
+              <span x-text="child.emoji"></span>
+            </div>
+            <span class="text-xs font-medium -mt-0.5"
+                  :class="activeChildId === child.id ? 'text-gray-800 font-bold' : 'text-gray-400'"
+                  x-text="child.name"></span>
+            <!-- 未完成红点 -->
+            <span x-show="activeChildId !== child.id && (getChildStatus(child.id).total - getChildStatus(child.id).done) > 0"
+                  class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold pulse-dot"
+                  x-text="getChildStatus(child.id).total - getChildStatus(child.id).done"></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- 进度概览 -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-5 bounce-in">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+            <span x-text="activeChild ? activeChild.emoji : ''"></span>
+            <span x-text="activeChild ? activeChild.name : ''"></span>
+            今日
+          </span>
+          <span class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500"
+                x-text="`${progress.percent}%`"></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+          <div class="bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-1"
+               :style="`width: ${progress.percent}%`">
+            <template x-if="progress.percent > 15">
+              <span class="text-xs">🎉</span>
+            </template>
+          </div>
+        </div>
+        <div class="flex justify-between mt-3 text-sm">
+          <span class="text-gray-500">
+            已完成 <span class="font-bold text-green-600" x-text="progress.done"></span>
+          </span>
+          <span class="text-gray-500">
+            还差 <span class="font-bold text-red-500" x-text="progress.todo"></span> 项
+            <template x-if="progress.todo > 0">
+              <span class="pulse-dot">🔴</span>
+            </template>
+          </span>
+        </div>
+      </div>
+
+      <!-- 当前孩子任务（头像切换） -->
+      <template x-for="child in activeChild ? [activeChild] : []" :key="child.id">
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3 px-1">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-md"
+                 :style="`background: linear-gradient(135deg, ${child.color}22, ${child.color}44);`">
+              <span x-text="child.emoji"></span>
+            </div>
+            <div class="flex-1">
+              <h2 class="text-lg font-bold flex items-center gap-2">
+                <span x-text="child.name"></span>
+                <span class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  ⭐ <span x-text="getAvailablePoints(child.id)"></span>
+                </span>
+              </h2>
+              <p class="text-xs text-gray-500" x-text="`${getChildStatus(child.id).done}/${getChildStatus(child.id).total} 已完成`"></p>
+            </div>
+            <div class="text-right">
+              <div class="flex items-center gap-2">
+                <button @click="openAddBonus(child.id)"
+                        class="w-7 h-7 rounded-full bg-amber-100 text-amber-600 text-sm font-bold flex items-center justify-center"
+                        title="手动加分（做家务等额外表现）">✚</button>
+                <div>
+                  <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all"
+                         :style="`width: ${getChildStatus(child.id).percent}%; background: ${child.color};`"></div>
+                  </div>
+                  <span class="text-xs text-gray-500 mt-1 inline-block"
+                        x-text="`${getChildStatus(child.id).percent}%`"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2.5">
+            <template x-for="ti in getTodayTasks(child.id)" :key="ti.key">
+              <div class="task-card bg-white rounded-2xl p-4 shadow-sm border-2 flex items-center gap-3"
+                   :class="isCompleted(ti.key) ? 'completed' : 'border-transparent'">
+
+                <!-- 图标 -->
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                     :class="isCompleted(ti.key) ? 'bg-white/40' : 'bg-orange-50'"
+                     x-text="ti.task.icon"></div>
+
+                <!-- 任务信息 -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="task-name font-semibold text-gray-800" x-text="ti.task.name"></span>
+                    <template x-if="ti.slotLabel">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                            :class="ti.slot === 'morning' ? 'bg-yellow-100 text-yellow-700' : 'bg-indigo-100 text-indigo-700'"
+                            x-text="ti.slotLabel"></span>
+                    </template>
+                    <template x-if="ti.task.frequency.type === 'weekly'">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700"
+                            x-text="`本周 ${getWeeklyProgress(ti.task)}`"></span>
+                    </template>
+                    <template x-if="ti.task.frequency.type === 'alternate'">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+                        <span x-text="ti.alternateChoice === 'poem' ? '📜 古诗' : '📖 阅读'"></span>
+                      </span>
+                    </template>
+                  </div>
+                  <div class="text-xs mt-1"
+                       :class="isCompleted(ti.key) ? 'text-green-700' : 'text-gray-400'"
+                       x-text="getTaskHint(ti)"></div>
+                </div>
+
+                <!-- 打卡按钮 -->
+                <button @click="toggleComplete(ti)"
+                        class="check-btn w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
+                        :class="isCompleted(ti.key) ? 'bg-white text-green-500' : 'bg-gradient-to-br from-orange-400 to-pink-400 text-white'">
+                  <span x-text="isCompleted(ti.key) ? '✓' : '○'"></span>
+                </button>
+              </div>
+            </template>
+
+            <template x-if="getTodayTasks(child.id).length === 0">
+              <div class="text-center text-gray-400 py-6 text-sm">
+                还没有任务，去"任务"页添加吧 ✏️
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ========== 任务管理页 ========== -->
+    <div x-show="page === 'manage'" x-cloak>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">任务管理</h2>
+        <button @click="openAddTask()"
+                class="bg-gradient-to-r from-orange-400 to-pink-400 text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+          + 添加任务
+        </button>
+      </div>
+
+      <template x-for="child in children" :key="child.id">
+        <div class="mb-5">
+          <h3 class="text-sm font-bold text-gray-600 mb-2.5 flex items-center gap-2 px-1">
+            <span x-text="child.emoji"></span>
+            <span x-text="child.name"></span>
+            <span class="text-xs font-normal text-gray-400"
+                  x-text="`(${tasks.filter(t => t.childId === child.id).length} 个)`"></span>
+          </h3>
+          <div class="space-y-2">
+            <template x-for="task in tasks.filter(t => t.childId === child.id)" :key="task.id">
+              <div class="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-xl shrink-0"
+                     x-text="task.icon"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-gray-800" x-text="task.name"></div>
+                  <div class="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span x-text="getFrequencyLabel(task)"></span>
+                    <template x-if="task.reminders && task.reminders.length">
+                      <span>· ⏰ <span x-text="task.reminders.join(', ')"></span></span>
+                    </template>
+                  </div>
+                </div>
+                <button @click="editTask(task)" class="text-blue-500 hover:text-blue-700 p-2">
+                  ✏️
+                </button>
+                <button @click="deleteTask(task.id)" class="text-red-400 hover:text-red-600 p-2">
+                  🗑️
+                </button>
+              </div>
+            </template>
+            <template x-if="tasks.filter(t => t.childId === child.id).length === 0">
+              <div class="text-center text-gray-400 py-4 text-sm bg-white/50 rounded-2xl">
+                暂无任务
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- 孩子管理 -->
+      <div class="mt-8 bg-white rounded-2xl p-4 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-600 mb-3">孩子信息</h3>
+        <template x-for="child in children" :key="child.id">
+          <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+            <input type="text" x-model="child.emoji" class="w-12 text-center text-2xl bg-transparent">
+            <input type="text" x-model="child.name" class="flex-1 font-medium bg-transparent border-b border-transparent focus:border-orange-300 focus:outline-none">
+            <input type="color" x-model="child.color" class="w-8 h-8 rounded-lg cursor-pointer">
+          </div>
+        </template>
+        <button @click="saveData()" class="mt-3 w-full py-2 bg-orange-100 text-orange-600 rounded-xl text-sm font-medium">
+          保存修改
+        </button>
+      </div>
+    </div>
+
+    <!-- ========== 历史统计页 ========== -->
+    <div x-show="page === 'history'" x-cloak>
+      <!-- 孩子筛选 -->
+      <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <button @click="historyChild = 'all'"
+                :class="historyChild === 'all' ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white shadow-md' : 'bg-white text-gray-600'"
+                class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap">
+          全部
+        </button>
+        <template x-for="child in children" :key="child.id">
+          <button @click="historyChild = child.id"
+                  :class="historyChild === child.id ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white shadow-md' : 'bg-white text-gray-600'"
+                  class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap">
+            <span x-text="child.emoji"></span>
+            <span x-text="child.name"></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- 本周统计卡片 -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mb-4">
+        <h3 class="font-bold text-gray-700 mb-4">📊 本周概览</h3>
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-green-50 rounded-2xl py-3">
+            <div class="text-2xl font-black text-green-600" x-text="weekStats.totalDone"></div>
+            <div class="text-xs text-gray-500 mt-1">已完成</div>
+          </div>
+          <div class="bg-orange-50 rounded-2xl py-3">
+            <div class="text-2xl font-black text-orange-500" x-text="`${weekStats.percent}%`"></div>
+            <div class="text-xs text-gray-500 mt-1">完成率</div>
+          </div>
+          <div class="bg-purple-50 rounded-2xl py-3">
+            <div class="text-2xl font-black text-purple-500" x-text="`${weekStats.streak}🔥`"></div>
+            <div class="text-xs text-gray-500 mt-1">连续天数</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 连续打卡榜 -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100">
+        <h3 class="font-bold text-gray-700 mb-4">🔥 连续打卡榜</h3>
+        <div class="space-y-3">
+          <template x-for="task in visibleTasks" :key="task.id">
+            <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+              <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-xl"
+                   x-text="task.icon"></div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-sm text-gray-800" x-text="task.name"></div>
+                <div class="text-xs text-gray-400 mt-0.5">
+                  <span x-text="getChildById(task.childId).emoji"></span>
+                  <span x-text="getChildById(task.childId).name"></span>
+                  <span class="mx-1">·</span>
+                  <span x-text="getFrequencyLabel(task)"></span>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="flex items-baseline gap-1">
+                  <span class="text-2xl font-black text-orange-500" x-text="getStreak(task)"></span>
+                  <span class="text-xs text-gray-400">天</span>
+                </div>
+                <div class="text-xs text-gray-400">连续</div>
+              </div>
+            </div>
+          </template>
+          <template x-if="visibleTasks.length === 0">
+            <div class="text-center text-gray-400 py-4 text-sm">
+              还没有任务数据
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 近期日历 -->
+      <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100 mt-4">
+        <h3 class="font-bold text-gray-700 mb-3">📅 近 14 天打卡情况</h3>
+        <div class="grid grid-cols-7 gap-1.5">
+          <template x-for="day in last14Days" :key="day.date">
+            <div class="aspect-square rounded-xl flex flex-col items-center justify-center text-xs"
+                 :class="day.percent === 0 ? 'bg-gray-50 text-gray-300' :
+                         day.percent < 50 ? 'bg-orange-100 text-orange-700' :
+                         day.percent < 100 ? 'bg-orange-300 text-white' :
+                         'bg-gradient-to-br from-green-400 to-emerald-500 text-white'">
+              <div class="font-bold" x-text="day.day"></div>
+              <div class="text-[9px]" x-text="day.percent + '%'"></div>
+            </div>
+          </template>
+        </div>
+        <div class="flex justify-center gap-3 mt-3 text-xs text-gray-500">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-gray-50 rounded"></span>未完成</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-orange-300 rounded"></span>部分</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-400 rounded"></span>全部</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 奖励页 ========== -->
+    <div x-show="page === 'rewards'" x-cloak>
+
+      <!-- 主视图 -->
+      <div x-show="rewardView === 'main'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">奖励兑换 🎁</h2>
+          <div class="flex gap-2">
+            <button @click="openAddBonus()"
+                    class="bg-white border-2 border-amber-300 text-amber-600 px-4 py-2 rounded-full text-sm font-medium shadow-sm">
+              ✚ 手动加分
+            </button>
+            <button @click="openAddReward()"
+                    class="bg-gradient-to-r from-amber-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+              + 添加礼物
+            </button>
+          </div>
+        </div>
+
+        <p class="text-xs text-gray-400 mb-4 px-1">每完成一项任务得 1 ⭐，积分攒够了就能兑换愿望礼物；额外表现（做家务等）可手动加分</p>
+
+      <template x-for="child in children" :key="child.id">
+        <div class="mb-6">
+          <!-- 积分卡 -->
+          <div class="rounded-3xl p-5 shadow-lg mb-4 text-white"
+               :style="`background: linear-gradient(135deg, ${child.color}, ${child.color}cc);`">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl" x-text="child.emoji"></span>
+              <div class="flex-1">
+                <div class="text-sm opacity-80" x-text="child.name"></div>
+                <div class="flex items-baseline gap-1">
+                  <span class="text-4xl font-black" x-text="getAvailablePoints(child.id)"></span>
+                  <span class="text-sm">⭐ 可用积分</span>
+                </div>
+              </div>
+              <div class="text-right text-xs opacity-90 leading-5">
+                <div>累计 <span class="font-bold" x-text="getTotalPoints(child.id)"></span> ⭐</div>
+                <div>已兑换 <span class="font-bold" x-text="getSpentPoints(child.id)"></span> ⭐</div>
+              </div>
+              <button @click="openAddBonus(child.id)"
+                      class="w-9 h-9 rounded-full bg-white/25 hover:bg-white/40 text-white text-lg font-bold shrink-0 flex items-center justify-center"
+                      title="手动加分">✚</button>
+            </div>
+            <div class="mt-2 text-xs opacity-80" x-show="getBonusPoints(child.id) !== 0">
+              额外奖励 <span class="font-bold" x-text="`${getBonusPoints(child.id) > 0 ? '+' : ''}${getBonusPoints(child.id)}⭐`"></span>（家务/奖惩等额外调整）
+            </div>
+          </div>
+
+          <!-- 愿望清单 -->
+          <h3 class="text-sm font-bold text-gray-600 mb-2.5 px-1">💝 愿望清单</h3>
+          <div class="space-y-2.5">
+            <template x-for="reward in rewardGoals.filter(r => r.childId === child.id && !r.completed)" :key="reward.id">
+              <div class="bg-white rounded-2xl p-4 shadow-sm border-2"
+                   :class="getAvailablePoints(child.id) >= reward.cost ? 'border-amber-300' : 'border-transparent'">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-2xl shrink-0"
+                       x-text="reward.icon"></div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-gray-800" x-text="reward.name"></div>
+                    <div class="text-xs text-gray-500 mt-0.5">
+                      需要 <span class="font-bold text-amber-600" x-text="reward.cost"></span> ⭐
+                      · 还差 <span class="font-bold" x-text="Math.max(0, reward.cost - getAvailablePoints(child.id))"></span> ⭐
+                    </div>
+                    <div class="w-full h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                      <div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all"
+                           :style="`width: ${Math.min(100, Math.round(getAvailablePoints(child.id) / reward.cost * 100))}%`"></div>
+                    </div>
+                  </div>
+                  <button @click="redeem(reward)"
+                          class="px-4 py-2.5 rounded-xl text-sm font-bold shrink-0 transition-all"
+                          :class="getAvailablePoints(child.id) >= reward.cost
+                                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-md'
+                                  : 'bg-gray-100 text-gray-400'"
+                          :disabled="getAvailablePoints(child.id) < reward.cost"
+                          x-text="getAvailablePoints(child.id) >= reward.cost ? '🎉 兑换' : '未达标'"></button>
+                  <button @click="deleteReward(reward.id)" class="text-gray-300 hover:text-red-400 p-1 shrink-0">🗑️</button>
+                </div>
+              </div>
+            </template>
+            <template x-if="rewardGoals.filter(r => r.childId === child.id && !r.completed).length === 0">
+              <div class="text-center text-gray-400 py-5 text-sm bg-white/50 rounded-2xl">
+                还没有愿望礼物，点右上角"+ 添加礼物" ✨
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+        <!-- 记录入口 -->
+        <div class="grid grid-cols-2 gap-3 mt-2 mb-4">
+          <button @click="rewardView = 'records'"
+                  class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 active:scale-95 transition-transform text-left">
+            <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-xl shrink-0">🧾</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold text-gray-700">兑换记录</div>
+              <div class="text-xs text-gray-400" x-text="`${exchanges.length} 条 ›`"></div>
+            </div>
+          </button>
+          <button @click="rewardView = 'bonus'"
+                  class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 active:scale-95 transition-transform text-left">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl shrink-0">✚</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold text-gray-700">加分记录</div>
+              <div class="text-xs text-gray-400" x-text="`${bonusPoints.length} 条 ›`"></div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 兑换记录子页 -->
+      <div x-show="rewardView === 'records'" x-cloak>
+        <div class="flex items-center gap-3 mb-4">
+          <button @click="rewardView = 'main'"
+                  class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold active:scale-95">←</button>
+          <h2 class="text-xl font-bold">🧾 兑换记录</h2>
+        </div>
+
+        <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100">
+          <template x-if="exchanges.length === 0">
+            <div class="text-center text-gray-400 py-8 text-sm">还没有兑换记录</div>
+          </template>
+          <div class="space-y-2">
+            <template x-for="ex in [...exchanges].sort((a,b) => b.date.localeCompare(a.date))" :key="ex.id">
+              <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div class="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center text-lg" x-text="ex.icon"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-gray-800">
+                    <span x-text="getChildById(ex.childId).emoji"></span>
+                    <span x-text="getChildById(ex.childId).name"></span>
+                    兑换了 <span class="font-bold" x-text="ex.name"></span>
+                  </div>
+                  <div class="text-xs text-gray-400" x-text="formatDate(ex.date)"></div>
+                </div>
+                <span class="text-sm font-bold text-red-400 shrink-0" x-text="`-${ex.cost}⭐`"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- 加分记录子页 -->
+      <div x-show="rewardView === 'bonus'" x-cloak>
+        <div class="flex items-center gap-3 mb-4">
+          <button @click="rewardView = 'main'"
+                  class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold active:scale-95">←</button>
+          <h2 class="text-xl font-bold">✚ 加分记录</h2>
+        </div>
+
+        <div class="bg-white rounded-3xl p-5 shadow-lg shadow-orange-100">
+          <template x-if="bonusPoints.length === 0">
+            <div class="text-center text-gray-400 py-8 text-sm">还没有加分记录</div>
+          </template>
+          <div class="space-y-2">
+            <template x-for="bp in [...bonusPoints].sort((a,b) => b.date.localeCompare(a.date))" :key="bp.id">
+              <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-lg" x-text="bp.icon"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-gray-800">
+                    <span x-text="getChildById(bp.childId).emoji"></span>
+                    <span x-text="getChildById(bp.childId).name"></span>
+                    <span x-text="bp.reason"></span>
+                  </div>
+                  <div class="text-xs text-gray-400" x-text="formatDate(bp.date)"></div>
+                </div>
+                <span class="text-sm font-bold shrink-0"
+                      :class="bp.points < 0 ? 'text-red-500' : 'text-amber-600'"
+                      x-text="`${bp.points > 0 ? '+' : ''}${bp.points}⭐`"></span>
+                <button @click="deleteBonus(bp.id)" class="text-gray-300 hover:text-red-400 p-1 shrink-0">🗑️</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 底部导航 -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-100 z-20 safe-bottom">
+    <div class="flex justify-around max-w-2xl mx-auto">
+      <button @click="page = 'today'"
+              class="nav-item flex flex-col items-center py-2 px-4"
+              :class="page === 'today' ? 'active' : 'text-gray-400'">
+        <span class="text-2xl">📅</span>
+        <span class="text-xs mt-0.5 font-medium">今日</span>
+        <span class="nav-dot"></span>
+      </button>
+      <button @click="page = 'manage'"
+              class="nav-item flex flex-col items-center py-2 px-4"
+              :class="page === 'manage' ? 'active' : 'text-gray-400'">
+        <span class="text-2xl">📋</span>
+        <span class="text-xs mt-0.5 font-medium">任务</span>
+        <span class="nav-dot"></span>
+      </button>
+      <button @click="page = 'history'"
+              class="nav-item flex flex-col items-center py-2 px-4"
+              :class="page === 'history' ? 'active' : 'text-gray-400'">
+        <span class="text-2xl">📊</span>
+        <span class="text-xs mt-0. font-medium">统计</span>
+        <span class="nav-dot"></span>
+      </button>
+      <button @click="page = 'rewards'; rewardView = 'main'"
+              class="nav-item flex flex-col items-center py-2 px-4"
+              :class="page === 'rewards' ? 'active' : 'text-gray-400'">
+        <span class="text-2xl">🎁</span>
+        <span class="text-xs mt-0.5 font-medium">奖励</span>
+        <span class="nav-dot"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 添加/编辑任务弹窗 -->
+  <div x-show="showTaskModal" x-cloak
+       class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+       @click.self="closeTaskModal()"
+       x-transition>
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
+         @click.stop>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold" x-text="editingTaskId ? '✏️ 编辑任务' : '➕ 添加任务'"></h3>
+        <button @click="closeTaskModal()" class="text-gray-400 text-2xl">×</button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- 孩子选择 -->
+        <div>
+          <label class="text-xs text-gray-500 font-medium">归属孩子</label>
+          <select x-model="taskForm.childId" class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
+            <template x-for="child in children" :key="child.id">
+              <option :value="child.id" x-text="`${child.emoji} ${child.name}`"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- 任务名 + 图标 -->
+        <div class="flex gap-2">
+          <div class="w-20">
+            <label class="text-xs text-gray-500 font-medium">图标</label>
+            <input x-model="taskForm.icon" placeholder="🪥"
+                   class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 text-center text-2xl focus:ring-2 focus:ring-orange-300">
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">任务名</label>
+            <input x-model="taskForm.name" placeholder="例如：刷牙"
+                   class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
+          </div>
+        </div>
+
+        <!-- 频率 -->
+        <div>
+          <label class="text-xs text-gray-500 font-medium">频率类型</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <template x-for="opt in [
+              { value: 'daily', label: '每天', icon: '📆' },
+              { value: 'daily-twice', label: '每天两次', icon: '🌅🌙' },
+              { value: 'weekly', label: '每周N次', icon: '📊' },
+              { value: 'alternate', label: '交替任务', icon: '🔄' }
+            ]" :key="opt.value">
+              <button @click="taskForm.frequencyType = opt.value"
+                      :class="taskForm.frequencyType === opt.value ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white shadow-md' : 'bg-gray-50 text-gray-600'"
+                      class="p-3 rounded-xl text-sm font-medium">
+                <span x-text="opt.icon"></span>
+                <div x-text="opt.label"></div>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- 每周几次 -->
+        <div x-show="taskForm.frequencyType === 'weekly'" x-transition>
+          <label class="text-xs text-gray-500 font-medium">每周几次</label>
+          <input type="number" x-model.number="taskForm.weeklyTarget" min="1" max="7"
+                 class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
+        </div>
+
+        <!-- 提醒时间 -->
+        <div>
+          <label class="text-xs text-gray-500 font-medium">提醒时间（用逗号分隔，可多个）</label>
+          <input x-model="taskForm.reminders" placeholder="例如：07:30, 20:00"
+                 class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
+          <p class="text-xs text-gray-400 mt-1">格式 HH:MM，未开启通知时无效</p>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-6">
+        <button @click="closeTaskModal()" class="flex-1 py-3 rounded-xl bg-gray-100 font-medium">取消</button>
+        <button @click="saveTask()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-pink-400 text-white font-bold shadow-md">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手动加分弹窗 -->
+  <div x-show="showBonusModal" x-cloak
+       class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+       @click.self="showBonusModal = false"
+       x-transition>
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6"
+         @click.stop>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">✚ 手动加分</h3>
+        <button @click="showBonusModal = false" class="text-gray-400 text-2xl">×</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-500 font-medium">给谁加分</label>
+          <select x-model="bonusForm.childId" class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-amber-300">
+            <template x-for="child in children" :key="child.id">
+              <option :value="child.id" x-text="`${child.emoji} ${child.name}`"></option>
+            </template>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 font-medium">加分原因</label>
+          <div class="flex flex-wrap gap-2 mt-1.5 mb-2">
+            <template x-for="preset in ['🧹 做家务', '🍚 帮忙做饭', '🧺 收拾碗筷', '🤝 帮助他人', '😁 表现好', '📖 主动学习']" :key="preset">
+              <button @click="bonusForm.reason = preset"
+                      class="px-3 py-1.5 rounded-full text-xs border transition-all"
+                      :class="bonusForm.reason === preset
+                              ? 'bg-amber-50 border-amber-400 text-amber-700 font-bold'
+                              : 'bg-gray-50 border-gray-200 text-gray-600'"
+                      x-text="preset"></button>
+            </template>
+          </div>
+          <input x-model="bonusForm.reason" placeholder="或自己输入，如：帮妈妈洗碗"
+                 class="w-full p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-amber-300">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 font-medium">加多少分 ⭐（负数即扣分）</label>
+          <div class="flex items-center gap-3 mt-1.5">
+            <button @click="bonusForm.points = Math.max(-99, bonusForm.points - 1)"
+                    class="w-11 h-11 rounded-xl bg-gray-100 text-xl font-bold text-gray-600 shrink-0">−</button>
+            <div class="flex-1 text-center">
+              <span class="text-3xl font-black"
+                    :class="bonusForm.points < 0 ? 'text-red-500' : 'text-amber-500'"
+                    x-text="bonusForm.points"></span>
+              <span class="text-sm text-gray-400 ml-1">⭐</span>
+            </div>
+            <button @click="bonusForm.points = Math.min(99, bonusForm.points + 1)"
+                    class="w-11 h-11 rounded-xl bg-amber-100 text-xl font-bold text-amber-600 shrink-0">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-6">
+        <button @click="showBonusModal = false" class="flex-1 py-3 rounded-xl bg-gray-100 font-medium">取消</button>
+        <button @click="saveBonus()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold shadow-md">确认加分</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加礼物弹窗 -->
+  <div x-show="showRewardModal" x-cloak
+       class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+       @click.self="showRewardModal = false"
+       x-transition>
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
+         @click.stop>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">💝 添加愿望礼物</h3>
+        <button @click="showRewardModal = false" class="text-gray-400 text-2xl">×</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-500 font-medium">归属孩子</label>
+          <select x-model="rewardForm.childId" class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-amber-300">
+            <template x-for="child in children" :key="child.id">
+              <option :value="child.id" x-text="`${child.emoji} ${child.name}`"></option>
+            </template>
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <div class="w-20">
+            <label class="text-xs text-gray-500 font-medium">图标</label>
+            <input x-model="rewardForm.icon" placeholder="🎁"
+                   class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 text-center text-2xl focus:ring-2 focus:ring-amber-300">
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">礼物名称</label>
+            <input x-model="rewardForm.name" placeholder="例如：一个榴莲"
+                   class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-amber-300">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 font-medium">所需积分 ⭐</label>
+          <input type="number" x-model.number="rewardForm.cost" min="1"
+                 class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-amber-300">
+          <p class="text-xs text-gray-400 mt-1">每完成一项任务得 1 ⭐，早晚刷牙算 2 项</p>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-6">
+        <button @click="showRewardModal = false" class="flex-1 py-3 rounded-xl bg-gray-100 font-medium">取消</button>
+        <button @click="saveReward()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold shadow-md">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义确认弹窗 -->
+  <div x-show="confirmModal.show" x-cloak
+       class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6"
+       @click.self="confirmModal.show = false"
+       x-transition>
+    <div class="bg-white rounded-3xl w-full max-w-xs p-6 text-center" @click.stop>
+      <div class="text-3xl mb-2">🤔</div>
+      <h3 class="font-bold text-gray-800 mb-1" x-text="confirmModal.title"></h3>
+      <p class="text-sm text-gray-500 mb-5" x-text="confirmModal.message"></p>
+      <div class="flex gap-2">
+        <button @click="confirmModal.show = false"
+                class="flex-1 py-2.5 rounded-xl bg-gray-100 font-medium text-sm">取消</button>
+        <button @click="confirmYes()"
+                class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-400 to-pink-400 text-white font-bold text-sm">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示 Toast -->
+  <div x-show="toast.show" x-cloak
+       x-transition
+       class="fixed top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50">
+    <span x-text="toast.message"></span>
+  </div>
+
+  <script>
+    // ================== 数据与状态 ==================
+    function app() {
+      return {
+        page: 'today',
+        historyChild: 'all',
+        today: new Date().toISOString().split('T')[0],
+
+        children: [],
+        tasks: [],
+        records: {},
+        alternates: {},
+        rewardGoals: [],
+        exchanges: [],
+        bonusPoints: [],
+        activeChildId: '',
+
+        showTaskModal: false,
+        editingTaskId: null,
+        taskForm: {
+          childId: '',
+          name: '',
+          icon: '⭐',
+          frequencyType: 'daily',
+          weeklyTarget: 5,
+          reminders: ''
+        },
+
+        showRewardModal: false,
+        rewardForm: {
+          childId: '',
+          name: '',
+          icon: '🎁',
+          cost: 200
+        },
+
+        showBonusModal: false,
+        bonusForm: {
+          childId: '',
+          reason: '',
+          points: 1
+        },
+
+        rewardView: 'main',
+        confirmModal: { show: false, title: '', message: '', callback: null },
+
+        notifPermission: 'default',
+        reminderTimers: [],
+
+        toast: { show: false, message: '' },
+
+        // ================== 初始化 ==================
+        init() {
+          this.loadData();
+          if (this.children.length === 0) {
+            this.seedData();
+          }
+          if (!this.activeChildId && this.children[0]) {
+            this.activeChildId = this.children[0].id;
+          }
+          this.notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'denied';
+
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+          }
+
+          this.scheduleReminders();
+
+          // 每分钟检查日期变化
+          setInterval(() => {
+            const t = new Date().toISOString().split('T')[0];
+            if (t !== this.today) this.today = t;
+          }, 60000);
+        },
+
+        loadData() {
+          try {
+            const data = JSON.parse(localStorage.getItem('kids-habits-data') || '{}');
+            this.children = data.children || [];
+            this.tasks = data.tasks || [];
+            this.records = data.records || {};
+            this.alternates = data.alternates || {};
+            this.rewardGoals = data.rewardGoals || [];
+            this.bonusPoints = data.bonusPoints || [];
+            this.exchanges = data.exchanges || [];
+            if (this.children[0]) this.taskForm.childId = this.children[0].id;
+            if (this.children[0]) this.rewardForm.childId = this.children[0].id;
+          } catch (e) {
+            console.error('loadData error', e);
+          }
+        },
+
+        saveData() {
+          localStorage.setItem('kids-habits-data', JSON.stringify({
+            children: this.children,
+            tasks: this.tasks,
+            records: this.records,
+            alternates: this.alternates,
+            rewardGoals: this.rewardGoals,
+            bonusPoints: this.bonusPoints,
+            exchanges: this.exchanges
+          }));
+          this.showToast('已保存 ✅');
+        },
+
+        // ================== 种子数据 ==================
+        seedData() {
+          this.children = [
+            { id: 'c1', name: '大孩子', emoji: '👦', color: '#3b82f6' },
+            { id: 'c2', name: '小孩子', emoji: '👧', color: '#ec4899' }
+          ];
+          this.taskForm.childId = 'c1';
+
+          this.tasks = [
+            // === 大孩子 ===
+            this._t('c1', '刷牙', '🪥', 'daily-twice', null, ['07:30', '20:30']),
+            this._t('c1', '语文作业', '📖', 'daily', null, ['18:30']),
+            this._t('c1', '数学作业', '🔢', 'daily', null, ['18:30']),
+            this._t('c1', '英语作业', '🔤', 'daily', null, ['19:00']),
+            this._t('c1', '英语阅读', '📚', 'daily', null, ['20:00']),
+            this._t('c1', '书法练习', '✍️', 'daily', null, []),
+            this._t('c1', '弹琴', '🎹', 'daily', null, ['18:00']),
+            this._t('c1', '写作课', '📝', 'weekly', 1, []),
+            this._t('c1', '跳绳/运动', '🤸', 'daily', null, ['17:30']),
+
+            // === 小孩子 ===
+            this._t('c2', '刷牙', '🪥', 'daily-twice', null, ['07:30', '20:30']),
+            this._t('c2', '拼音练习', '🅰️', 'daily', null, ['17:00']),
+            this._t('c2', '数学练习', '🔢', 'daily', null, ['17:00']),
+            this._t('c2', '汉字练习', '✏️', 'daily', null, ['17:30']),
+            this._t('c2', '帮帮识字', '📱', 'daily', null, ['18:00']),
+            this._t('c2', '弹琴', '🎹', 'weekly', 5, []),
+            this._t('c2', '古诗/阅读', '📜', 'alternate', null, ['20:00'])
+          ];
+
+          this.saveData();
+        },
+
+        _t(childId, name, icon, freqType, weeklyTarget, reminders) {
+          let frequency;
+          if (freqType === 'daily-twice') {
+            frequency = { type: 'daily-twice', slots: ['morning', 'evening'], slotLabels: { morning: '早', evening: '晚' } };
+          } else if (freqType === 'weekly') {
+            frequency = { type: 'weekly', target: weeklyTarget || 5 };
+          } else if (freqType === 'alternate') {
+            frequency = { type: 'alternate', options: ['poem', 'reading'], labels: { poem: '古诗', reading: '阅读' } };
+          } else {
+            frequency = { type: 'daily' };
+          }
+          return {
+            id: 't-' + Math.random().toString(36).substr(2, 9),
+            childId, name, icon, frequency, reminders, enabled: true
+          };
+        },
+
+        // ================== 计算属性 ==================
+        get progress() {
+          const c = this.activeChild;
+          if (!c) return { total: 0, done: 0, todo: 0, percent: 0 };
+          const s = this.getChildStatus(c.id);
+          return { total: s.total, done: s.done, todo: s.total - s.done, percent: s.percent };
+        },
+
+        get activeChild() {
+          return this.children.find(c => c.id === this.activeChildId) || this.children[0] || null;
+        },
+
+        switchChild(id) {
+          this.activeChildId = id;
+        },
+
+        getChildStatus(childId) {
+          const tasks = this.getTodayTasks(childId);
+          const total = tasks.length;
+          const done = tasks.filter(t => this.isCompleted(t.key)).length;
+          return {
+            total, done,
+            percent: total ? Math.round(done / total * 100) : 0
+          };
+        },
+
+        getTodayTasks(childId) {
+          if (!this.tasks || !this.tasks.length) return [];
+          return this.tasks
+            .filter(t => t.childId === childId && t.enabled)
+            .flatMap(task => this._expandTask(task))
+            .filter(Boolean);
+        },
+
+        _expandTask(task) {
+          const today = this.today;
+          const f = task.frequency.type;
+          if (f === 'daily-twice') {
+            return task.frequency.slots.map(slot => ({
+              key: `${today}|${task.id}|${slot}`,
+              task, slot,
+              slotLabel: task.frequency.slotLabels[slot] || slot
+            }));
+          } else if (f === 'alternate') {
+            const last = this.alternates[task.id];
+            const todayChoice = last === 'poem' ? 'reading' : 'poem';
+            return [{
+              key: `${today}|${task.id}`,
+              task, slot: null,
+              alternateChoice: todayChoice,
+              alternateLabel: task.frequency.labels[todayChoice]
+            }];
+          } else {
+            return [{
+              key: `${today}|${task.id}`,
+              task, slot: null
+            }];
+          }
+        },
+
+        isCompleted(key) {
+          return !!(this.records[this.today] && this.records[this.today][key] && this.records[this.today][key].completed);
+        },
+
+        // ================== 打卡操作 ==================
+        toggleComplete(ti) {
+          if (!this.records[this.today]) this.records[this.today] = {};
+          const cur = this.records[this.today][ti.key];
+          if (cur && cur.completed) {
+            delete this.records[this.today][ti.key];
+            this.showToast('已取消 ✕');
+          } else {
+            this.records[this.today][ti.key] = { completed: true, time: Date.now() };
+            if (ti.task.frequency.type === 'alternate' && ti.alternateChoice) {
+              this.alternates[ti.task.id] = ti.alternateChoice;
+            }
+            this.showToast(`太棒了！🎉 ${ti.task.name} +1⭐`);
+            if (navigator.vibrate) navigator.vibrate(50);
+          }
+          this.saveData();
+        },
+
+        // ================== 任务管理 ==================
+        openAddTask() {
+          this.editingTaskId = null;
+          this.taskForm = {
+            childId: this.children[0]?.id || '',
+            name: '', icon: '⭐',
+            frequencyType: 'daily',
+            weeklyTarget: 5,
+            reminders: ''
+          };
+          this.showTaskModal = true;
+        },
+
+        editTask(task) {
+          this.editingTaskId = task.id;
+          this.taskForm = {
+            childId: task.childId,
+            name: task.name,
+            icon: task.icon,
+            frequencyType: task.frequency.type,
+            weeklyTarget: task.frequency.target || 5,
+            reminders: (task.reminders || []).join(', ')
+          };
+          this.showTaskModal = true;
+        },
+
+        closeTaskModal() {
+          this.showTaskModal = false;
+          this.editingTaskId = null;
+        },
+
+        saveTask() {
+          if (!this.taskForm.name.trim()) {
+            this.showToast('请输入任务名');
+            return;
+          }
+          const reminders = this.taskForm.reminders
+            .split(',').map(s => s.trim()).filter(s => /^\d{1,2}:\d{2}$/.test(s));
+
+          let frequency;
+          const ft = this.taskForm.frequencyType;
+          if (ft === 'daily-twice') {
+            frequency = { type: 'daily-twice', slots: ['morning', 'evening'], slotLabels: { morning: '早', evening: '晚' } };
+          } else if (ft === 'weekly') {
+            frequency = { type: 'weekly', target: this.taskForm.weeklyTarget };
+          } else if (ft === 'alternate') {
+            frequency = { type: 'alternate', options: ['poem', 'reading'], labels: { poem: '古诗', reading: '阅读' } };
+          } else {
+            frequency = { type: 'daily' };
+          }
+
+          if (this.editingTaskId) {
+            const idx = this.tasks.findIndex(t => t.id === this.editingTaskId);
+            if (idx >= 0) {
+              this.tasks[idx] = {
+                ...this.tasks[idx],
+                childId: this.taskForm.childId,
+                name: this.taskForm.name,
+                icon: this.taskForm.icon || '⭐',
+                frequency,
+                reminders
+              };
+            }
+          } else {
+            this.tasks.push({
+              id: 't-' + Math.random().toString(36).substr(2, 9),
+              childId: this.taskForm.childId,
+              name: this.taskForm.name,
+              icon: this.taskForm.icon || '⭐',
+              frequency,
+              reminders,
+              enabled: true
+            });
+          }
+          this.saveData();
+          this.closeTaskModal();
+          this.scheduleReminders();
+        },
+
+        deleteTask(id) {
+          this.appConfirm('删除任务', '确定删除这个任务？历史打卡记录也会一起清除。', () => {
+            this.tasks = this.tasks.filter(t => t.id !== id);
+            Object.keys(this.records).forEach(date => {
+              Object.keys(this.records[date]).forEach(key => {
+                if (key.includes('|' + id + '|') || key.endsWith('|' + id)) {
+                  delete this.records[date][key];
+                }
+              });
+            });
+            this.saveData();
+          });
+        },
+
+        getFrequencyLabel(task) {
+          const map = {
+            'daily': '每天',
+            'daily-twice': '每天两次',
+            'weekly': `每周 ${task.frequency.target || 5} 次`,
+            'alternate': '交替（古诗/阅读）'
+          };
+          return map[task.frequency.type] || '未知';
+        },
+
+        getTaskHint(ti) {
+          if (ti.task.frequency.type === 'alternate') {
+            return `今天轮到：${ti.alternateLabel} · 明天会自动换`;
+          }
+          if (ti.task.frequency.type === 'weekly') {
+            return `本周进度：${this.getWeeklyProgress(ti.task)}`;
+          }
+          if (ti.task.reminders && ti.task.reminders.length) {
+            return `⏰ 提醒 ${ti.task.reminders.join(', ')}`;
+          }
+          return '';
+        },
+
+        // ================== 统计 ==================
+        getStartOfWeek() {
+          const d = new Date(this.today);
+          const day = d.getDay();
+          d.setDate(d.getDate() - day);
+          return d.toISOString().split('T')[0];
+        },
+
+        getWeeklyProgress(task) {
+          const start = this.getStartOfWeek();
+          let count = 0;
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(start);
+            date.setDate(date.getDate() + i);
+            const ds = date.toISOString().split('T')[0];
+            const rec = this.records[ds] && this.records[ds][`${ds}|${task.id}`];
+            if (rec && rec.completed) count++;
+          }
+          return `${count}/${task.frequency.target || 5}`;
+        },
+
+        getChildById(id) {
+          return this.children.find(c => c.id === id) || { name: '未知', emoji: '❓' };
+        },
+
+        getStreak(task) {
+          let streak = 0;
+          for (let i = 0; i < 365; i++) {
+            const d = new Date(this.today);
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+
+            if (!this.records[ds]) {
+              if (i === 0) continue;
+              break;
+            }
+
+            const f = task.frequency.type;
+            if (f === 'daily-twice') {
+              const morning = this.records[ds][`${ds}|${task.id}|morning`];
+              const evening = this.records[ds][`${ds}|${task.id}|evening`];
+              const done = morning?.completed && evening?.completed;
+              if (done) streak++;
+              else if (i > 0) break;
+            } else {
+              const rec = this.records[ds][`${ds}|${task.id}`];
+              if (rec?.completed) streak++;
+              else if (i > 0) break;
+            }
+          }
+          return streak;
+        },
+
+        get weekStats() {
+          const start = this.getStartOfWeek();
+          let total = 0, done = 0;
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(d.getDate() + i);
+            const ds = d.toISOString().split('T')[0];
+            this.children.forEach(c => {
+              this.getTodayTasks(c.id).forEach(ti => {
+                total++;
+                if (this.records[ds]?.[ti.key]?.completed) done++;
+              });
+            });
+          }
+
+          let streak = 0;
+          for (let i = 0; i < 365; i++) {
+            const d = new Date(this.today);
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            if (!this.records[ds]) {
+              if (i === 0) continue;
+              break;
+            }
+            const hasAny = Object.values(this.records[ds]).some(r => r.completed);
+            if (hasAny) streak++;
+            else if (i > 0) break;
+          }
+
+          return {
+            totalDone: done,
+            percent: total ? Math.round(done / total * 100) : 0,
+            streak
+          };
+        },
+
+        get visibleTasks() {
+          return this.tasks.filter(t => this.historyChild === 'all' || t.childId === this.historyChild);
+        },
+
+        get last14Days() {
+          const days = [];
+          for (let i = 13; i >= 0; i--) {
+            const d = new Date(this.today);
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            let total = 0, done = 0;
+            this.children.forEach(c => {
+              const tasks = this.getTodayTasksForDate(c.id, ds);
+              total += tasks.length;
+              tasks.forEach(ti => {
+                if (this.records[ds]?.[ti.key]?.completed) done++;
+              });
+            });
+            days.push({
+              date: ds,
+              day: d.getDate(),
+              percent: total ? Math.round(done / total * 100) : 0
+            });
+          }
+          return days;
+        },
+
+        getTodayTasksForDate(childId, date) {
+          const today = this.today;
+          const oldToday = this.today;
+          this.today = date;
+          const tasks = this.getTodayTasks(childId);
+          this.today = oldToday;
+          return tasks;
+        },
+
+        formatDate(dateStr) {
+          const d = new Date(dateStr);
+          const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+          return `${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
+        },
+
+        // ================== 积分与奖励 ==================
+        // 累计获得积分：打卡记录（每条 completed = 1 分）+ 手动加分
+        getTotalPoints(childId) {
+          const taskIds = new Set(this.tasks.filter(t => t.childId === childId).map(t => t.id));
+          let points = 0;
+          Object.values(this.records).forEach(dayRecords => {
+            Object.keys(dayRecords).forEach(key => {
+              if (!dayRecords[key].completed) return;
+              // key 格式: date|taskId 或 date|taskId|slot
+              const taskId = key.split('|')[1];
+              if (taskIds.has(taskId)) points++;
+            });
+          });
+          return points + this.getBonusPoints(childId);
+        },
+
+        // 额外奖励积分（家务等手动加分）
+        getBonusPoints(childId) {
+          return this.bonusPoints
+            .filter(bp => bp.childId === childId)
+            .reduce((sum, bp) => sum + (bp.points || 0), 0);
+        },
+
+        // 已兑换积分
+        getSpentPoints(childId) {
+          return this.exchanges
+            .filter(ex => ex.childId === childId)
+            .reduce((sum, ex) => sum + (ex.cost || 0), 0);
+        },
+
+        // ================== 手动加分 ==================
+        openAddBonus(childId) {
+          this.bonusForm = {
+            childId: childId || this.children[0]?.id || '',
+            reason: '',
+            points: 1
+          };
+          this.showBonusModal = true;
+        },
+
+        saveBonus() {
+          if (!this.bonusForm.childId) {
+            this.showToast('请选择孩子');
+            return;
+          }
+          const pts = Math.round(Number(this.bonusForm.points) || 0);
+          if (pts === 0) {
+            this.showToast('分数不能为 0 ⭐');
+            return;
+          }
+          if (pts < -99 || pts > 99) {
+            this.showToast('分数范围为 -99 ~ 99 ⭐');
+            return;
+          }
+          const reason = (this.bonusForm.reason || '').trim() || '额外表现';
+          const iconMatch = reason.match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})\s*/u);
+          this.bonusPoints.push({
+            id: 'bp-' + Math.random().toString(36).substr(2, 9),
+            childId: this.bonusForm.childId,
+            reason: reason,
+            icon: iconMatch ? iconMatch[1] : (pts > 0 ? '✚' : '➖'),
+            points: pts,
+            date: new Date().toISOString().split('T')[0]
+          });
+          this.saveData();
+          this.showBonusModal = false;
+          const child = this.getChildById(this.bonusForm.childId);
+          this.showToast(`${pts > 0 ? '✚' : '➖'} ${child.name} ${reason} ${pts > 0 ? '+' : ''}${pts}⭐`);
+          if (navigator.vibrate) navigator.vibrate(80);
+        },
+
+        deleteBonus(id) {
+          this.appConfirm('删除加分记录', '确定删除这条加分记录吗？积分会相应扣回。', () => {
+            this.bonusPoints = this.bonusPoints.filter(bp => bp.id !== id);
+            this.saveData();
+          });
+        },
+
+        // 可用积分 = 累计 - 已兑换
+        getAvailablePoints(childId) {
+          return this.getTotalPoints(childId) - this.getSpentPoints(childId);
+        },
+
+        openAddReward() {
+          this.rewardForm = {
+            childId: this.children[0]?.id || '',
+            name: '',
+            icon: '🎁',
+            cost: 200
+          };
+          this.showRewardModal = true;
+        },
+
+        saveReward() {
+          if (!this.rewardForm.name.trim()) {
+            this.showToast('请输入礼物名称');
+            return;
+          }
+          if (!this.rewardForm.cost || this.rewardForm.cost < 1) {
+            this.showToast('请输入有效的积分');
+            return;
+          }
+          this.rewardGoals.push({
+            id: 'r-' + Math.random().toString(36).substr(2, 9),
+            childId: this.rewardForm.childId,
+            name: this.rewardForm.name,
+            icon: this.rewardForm.icon || '🎁',
+            cost: Math.round(this.rewardForm.cost)
+          });
+          this.saveData();
+          this.showRewardModal = false;
+        },
+
+        deleteReward(id) {
+          this.appConfirm('删除礼物', '确定删除这个愿望礼物？', () => {
+            this.rewardGoals = this.rewardGoals.filter(r => r.id !== id);
+            this.saveData();
+          });
+        },
+
+        redeem(reward) {
+          const available = this.getAvailablePoints(reward.childId);
+          if (available < reward.cost) {
+            this.showToast(`积分不够，还差 ${reward.cost - available} ⭐`);
+            return;
+          }
+          const child = this.getChildById(reward.childId);
+          this.appConfirm('兑换礼物',
+            `确定用 ${reward.cost}⭐ 为 ${child.name} 兑换「${reward.name}」吗？`,
+            () => {
+              const today = new Date().toISOString().split('T')[0];
+              this.exchanges.push({
+                id: 'ex-' + Math.random().toString(36).substr(2, 9),
+                childId: reward.childId,
+                name: reward.name,
+                icon: reward.icon,
+                cost: reward.cost,
+                date: today
+              });
+              // 兑换后标记完成，从愿望清单隐藏
+              this.rewardGoals = this.rewardGoals.map(r =>
+                r.id === reward.id ? { ...r, completed: true, completedAt: today } : r
+              );
+              this.saveData();
+              this.showToast(`🎉 兑换成功！${child.name} 获得「${reward.name}」`);
+              if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            });
+        },
+
+        // ================== 自定义确认弹窗（confirm 在 PWA/内嵌浏览器中会被拦截） ==================
+        appConfirm(title, message, callback) {
+          this.confirmModal = { show: true, title, message, callback };
+        },
+        confirmYes() {
+          const cb = this.confirmModal.callback;
+          this.confirmModal.show = false;
+          if (typeof cb === 'function') cb();
+        },
+
+        // ================== 通知提醒 ==================
+        async requestNotificationPermission() {
+          if (typeof Notification === 'undefined') {
+            this.showToast('此浏览器不支持通知');
+            return;
+          }
+          const perm = await Notification.requestPermission();
+          this.notifPermission = perm;
+          if (perm === 'granted') {
+            this.scheduleReminders();
+            new Notification('🎉 通知已开启', {
+              body: '我会在打卡时间提醒你',
+              icon: 'icon.svg'
+            });
+            this.showToast('通知已开启 🔔');
+          }
+        },
+
+        scheduleReminders() {
+          this.reminderTimers.forEach(t => clearTimeout(t));
+          this.reminderTimers = [];
+          if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+          const now = new Date();
+          this.tasks.forEach(task => {
+            (task.reminders || []).forEach(time => {
+              const [h, m] = time.split(':').map(Number);
+              const target = new Date();
+              target.setHours(h, m, 0, 0);
+              if (target <= now) target.setDate(target.getDate() + 1);
+              const delay = target - now;
+
+              const timer = setTimeout(() => {
+                const child = this.getChildById(task.childId);
+                try {
+                  new Notification(`⏰ ${child.name} - ${task.name}`, {
+                    body: '记得打卡哦！',
+                    icon: 'icon.svg',
+                    tag: `${task.id}-${time}`,
+                    requireInteraction: false
+                  });
+                } catch (e) { /* 忽略 */ }
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                this.scheduleReminders();
+              }, delay);
+              this.reminderTimers.push(timer);
+            });
+          });
+        },
+
+        // ================== UI 辅助 ==================
+        showToast(msg) {
+          this.toast = { show: true, message: msg };
+          setTimeout(() => { this.toast.show = false; }, 2000);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
