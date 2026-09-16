@@ -88,20 +88,6 @@
       .cat-shadow,.cat-breathe,.cat-blink,.cat-ear-l,.cat-ear-r { animation: none; }
     }
 
-    /* 应用内提醒横幅 */
-    @keyframes bannerDrop {
-      0%{transform:translate(-50%,-24px) scale(.95);opacity:0}
-      60%{transform:translate(-50%,4px) scale(1.01);opacity:1}
-      100%{transform:translate(-50%,0) scale(1);opacity:1}
-    }
-    @keyframes bellShake {
-      0%,100%{transform:rotate(0)}
-      20%{transform:rotate(-16deg)} 40%{transform:rotate(14deg)}
-      60%{transform:rotate(-9deg)} 80%{transform:rotate(6deg)}
-    }
-    .banner-drop { animation: bannerDrop .42s cubic-bezier(.34,1.56,.64,1) forwards; }
-    .bell-shake { animation: bellShake .9s ease-in-out infinite; transform-origin: top center; }
-
     /* 滚动条美化 */
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-thumb { background: #fb923c; border-radius: 2px; }
@@ -144,18 +130,6 @@
             回到今天
           </button>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button @click="openNotifGuide()"
-                class="text-xs px-3 py-1.5 rounded-full font-medium shadow-sm flex items-center gap-1 active:scale-95"
-                :class="notifPermission === 'granted'
-                        ? 'bg-green-50 text-green-600'
-                        : (reminderCount === 0
-                           ? 'bg-gray-100 text-gray-400'
-                           : 'bg-gradient-to-r from-orange-400 to-pink-400 text-white')">
-          <span x-text="notifPermission === 'granted' ? '🔔 提醒已开'
-                        : (reminderCount === 0 ? '🔕 未设闹钟' : '🔕 提醒未开')"></span>
-        </button>
       </div>
     </div>
   </header>
@@ -345,9 +319,6 @@
                   <div class="font-semibold text-gray-800" x-text="task.name"></div>
                   <div class="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap mt-0.5">
                     <span x-text="getFrequencyLabel(task)"></span>
-                    <template x-if="task.reminders && task.reminders.length">
-                      <span>· ⏰ <span x-text="task.reminders.join(', ')"></span></span>
-                    </template>
                   </div>
                 </div>
                 <button @click="editTask(task)" class="text-blue-500 hover:text-blue-700 p-2">
@@ -1095,15 +1066,6 @@
                  class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
         </div>
 
-        <!-- 提醒时间 -->
-        <div>
-          <label class="text-xs text-gray-500 font-medium">提醒时间（用逗号分隔，可多个）</label>
-          <input x-model="taskForm.reminders" placeholder="例如：07:30, 20:00"
-                 class="w-full mt-1 p-3 rounded-xl bg-gray-50 border-0 focus:ring-2 focus:ring-orange-300">
-          <p class="text-xs text-gray-400 mt-1">
-            格式 HH:MM。App 打开着就会弹提醒；想锁屏也收到，去右上角开启系统通知
-          </p>
-        </div>
       </div>
 
       <div class="flex gap-2 mt-6">
@@ -1243,51 +1205,6 @@
     </div>
   </div>
 
-  <!-- 应用内提醒横幅（无需系统通知权限，App 打开着就一定会弹） -->
-  <div x-show="reminderBanner.show" x-cloak
-       style="position:fixed;top:calc(0.75rem + env(safe-area-inset-top));left:50%;width:calc(100% - 2rem);max-width:26rem;z-index:60">
-    <div class="banner-drop bg-white rounded-2xl shadow-2xl border-2 border-orange-200 p-3 flex items-center gap-3">
-      <span class="text-2xl bell-shake">🔔</span>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-bold text-gray-800 truncate" x-text="reminderBanner.title"></p>
-        <p class="text-xs text-gray-500" x-text="reminderBanner.body"></p>
-      </div>
-      <button @click="reminderBanner.show = false"
-              class="shrink-0 text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-full font-medium">知道啦</button>
-    </div>
-  </div>
-
-  <!-- 通知开启引导 -->
-  <div x-show="notifGuide.show" x-cloak
-       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-       @click.self="notifGuide.show = false">
-    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-      <div class="text-center mb-4">
-        <div class="text-4xl mb-2" x-text="notifGuide.emoji"></div>
-        <h3 class="text-lg font-bold text-gray-800" x-text="notifGuide.title"></h3>
-      </div>
-      <div class="text-sm text-gray-600 leading-relaxed space-y-2 mb-5"
-           x-html="notifGuide.html"></div>
-
-      <div class="space-y-2">
-        <button x-show="notifGuide.showEnableBtn" @click="doRequestPermission()"
-                class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-400 to-pink-400 text-white font-bold text-sm">
-          立即开启系统通知
-        </button>
-        <button @click="testReminder()"
-                class="w-full py-3 rounded-xl bg-orange-50 text-orange-600 font-bold text-sm">
-          🔔 发一条测试提醒
-        </button>
-        <button x-show="notifGuide.showOpenTask" @click="notifGuide.show = false; openAddTask()"
-                class="w-full py-3 rounded-xl bg-gray-100 text-gray-600 font-medium text-sm">
-          去给任务设置提醒时间
-        </button>
-        <button @click="notifGuide.show = false"
-                class="w-full py-2.5 text-sm text-gray-400">关闭</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 提示 Toast -->
   <div x-show="toast.show" x-cloak
        x-transition
@@ -1303,26 +1220,6 @@
     function parseDateStr(s) { const p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
     function addDaysStr(s, n) { const d = parseDateStr(s); d.setDate(d.getDate() + n); return dateStr(d); }
     function daysBetween(a, b) { return Math.round((parseDateStr(b) - parseDateStr(a)) / 86400000); }
-
-    // ========== 通知环境检测 ==========
-    // 返回 'default' | 'granted' | 'denied' | 'unsupported'
-    function detectNotifPermission() {
-      try {
-        if (typeof Notification === 'undefined') return 'unsupported';
-        if (typeof Notification.requestPermission !== 'function') return 'unsupported';
-        return Notification.permission || 'default';
-      } catch (e) { return 'unsupported'; }
-    }
-    function isIOSDevice() {
-      return /iP(hone|ad|od)/.test(navigator.userAgent) ||
-             (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
-    }
-    /* 是否从桌面图标启动（iOS 只有在 standalone 模式下才允许申请通知） */
-    function isStandaloneApp() {
-      try {
-        return navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-      } catch (e) { return false; }
-    }
 
     // ================== 猫咪：品种 / 阶段 / 道具 ==================
     const CAT_BREEDS = [
@@ -1710,8 +1607,7 @@
           name: '',
           icon: '⭐',
           frequencyType: 'daily',
-          weeklyTarget: 5,
-          reminders: ''
+          weeklyTarget: 5
         },
 
         showRewardModal: false,
@@ -1732,13 +1628,6 @@
         rewardView: 'main',
         confirmModal: { show: false, title: '', message: '', callback: null },
 
-        notifPermission: 'default',
-        firedReminders: {},          // "日期|任务id|时间" -> 已触发
-        reminderBanner: { show: false, title: '', body: '' },
-        notifGuide: { show: false, emoji: '', title: '', html: '', showEnableBtn: false, showOpenTask: false },
-        _reminderLoop: null,
-        _ac: null,                   // Web Audio 上下文（提示音）
-
         toast: { show: false, message: '' },
 
         // ================== 初始化 ==================
@@ -1750,29 +1639,20 @@
           if (!this.activeChildId && this.children[0]) {
             this.activeChildId = this.children[0].id;
           }
-          this.notifPermission = detectNotifPermission();
-
-          // iOS：音频上下文必须在用户手势里解锁一次
-          document.addEventListener('touchstart', () => this.unlockAudio(), { once: true });
-          document.addEventListener('click', () => this.unlockAudio(), { once: true });
-
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(() => {});
           }
 
-          this.startReminderLoop();
           this.settleCats();
 
-          // 每分钟检查日期变化（本地时区），ViewDate 跟着今天自动前进
+          // 每 15 秒检查日期变化（本地时区），ViewDate 跟着今天自动前进
           setInterval(() => {
             const t = getTodayStr();
             if (t !== this.today) {
               const wasViewingToday = this.viewDate === this.today;
               this.today = t;
               if (wasViewingToday) this.viewDate = t;
-              this.firedReminders = {};   // 跨天清空已触发记录
             }
-            this.notifPermission = detectNotifPermission();  // 用户在设置里改过权限时自动同步
           }, 15000);
         },
 
@@ -1801,7 +1681,12 @@
           try {
             const data = JSON.parse(localStorage.getItem('kids-habits-data') || '{}');
             this.children = data.children || [];
-            this.tasks = data.tasks || [];
+            /* 提醒功能已移除：清掉旧存档里残留的 reminders 字段 */
+            this.tasks = (data.tasks || []).map(t => {
+              if (!t || !('reminders' in t)) return t;
+              const { reminders, ...rest } = t;
+              return rest;
+            });
             this.records = data.records || {};
             this.alternates = data.alternates || {};
             this.rewardGoals = data.rewardGoals || [];
@@ -1847,30 +1732,30 @@
 
           this.tasks = [
             // === 大孩子 ===
-            this._t('c1', '刷牙', '🪥', 'daily-twice', null, ['07:30', '20:30']),
-            this._t('c1', '语文作业', '📖', 'daily', null, ['18:30']),
-            this._t('c1', '数学作业', '🔢', 'daily', null, ['18:30']),
-            this._t('c1', '英语作业', '🔤', 'daily', null, ['19:00']),
-            this._t('c1', '英语阅读', '📚', 'daily', null, ['20:00']),
-            this._t('c1', '书法练习', '✍️', 'daily', null, []),
-            this._t('c1', '弹琴', '🎹', 'daily', null, ['18:00']),
-            this._t('c1', '写作课', '📝', 'weekly', 1, []),
-            this._t('c1', '跳绳/运动', '🤸', 'daily', null, ['17:30']),
+            this._t('c1', '刷牙', '🪥', 'daily-twice', null),
+            this._t('c1', '语文作业', '📖', 'daily', null),
+            this._t('c1', '数学作业', '🔢', 'daily', null),
+            this._t('c1', '英语作业', '🔤', 'daily', null),
+            this._t('c1', '英语阅读', '📚', 'daily', null),
+            this._t('c1', '书法练习', '✍️', 'daily', null),
+            this._t('c1', '弹琴', '🎹', 'daily', null),
+            this._t('c1', '写作课', '📝', 'weekly', 1),
+            this._t('c1', '跳绳/运动', '🤸', 'daily', null),
 
             // === 小孩子 ===
-            this._t('c2', '刷牙', '🪥', 'daily-twice', null, ['07:30', '20:30']),
-            this._t('c2', '拼音练习', '🅰️', 'daily', null, ['17:00']),
-            this._t('c2', '数学练习', '🔢', 'daily', null, ['17:00']),
-            this._t('c2', '汉字练习', '✏️', 'daily', null, ['17:30']),
-            this._t('c2', '帮帮识字', '📱', 'daily', null, ['18:00']),
-            this._t('c2', '弹琴', '🎹', 'weekly', 5, []),
-            this._t('c2', '古诗/阅读', '📜', 'alternate', null, ['20:00'])
+            this._t('c2', '刷牙', '🪥', 'daily-twice', null),
+            this._t('c2', '拼音练习', '🅰️', 'daily', null),
+            this._t('c2', '数学练习', '🔢', 'daily', null),
+            this._t('c2', '汉字练习', '✏️', 'daily', null),
+            this._t('c2', '帮帮识字', '📱', 'daily', null),
+            this._t('c2', '弹琴', '🎹', 'weekly', 5),
+            this._t('c2', '古诗/阅读', '📜', 'alternate', null)
           ];
 
           this.saveData();
         },
 
-        _t(childId, name, icon, freqType, weeklyTarget, reminders) {
+        _t(childId, name, icon, freqType, weeklyTarget) {
           let frequency;
           if (freqType === 'daily-twice') {
             frequency = { type: 'daily-twice', slots: ['morning', 'evening'], slotLabels: { morning: '早', evening: '晚' } };
@@ -1883,7 +1768,7 @@
           }
           return {
             id: 't-' + Math.random().toString(36).substr(2, 9),
-            childId, name, icon, frequency, reminders, enabled: true
+            childId, name, icon, frequency, enabled: true
           };
         },
 
@@ -1988,8 +1873,7 @@
             childId: this.children[0]?.id || '',
             name: '', icon: '⭐',
             frequencyType: 'daily',
-            weeklyTarget: 5,
-            reminders: ''
+            weeklyTarget: 5
           };
           this.showTaskModal = true;
         },
@@ -2001,8 +1885,7 @@
             name: task.name,
             icon: task.icon,
             frequencyType: task.frequency.type,
-            weeklyTarget: task.frequency.target || 5,
-            reminders: (task.reminders || []).join(', ')
+            weeklyTarget: task.frequency.target || 5
           };
           this.showTaskModal = true;
         },
@@ -2017,15 +1900,6 @@
             this.showToast('请输入任务名');
             return;
           }
-          const reminders = this.taskForm.reminders
-            .split(/[,，、\s]+/)                       // 兼容中英文逗号、顿号、空格
-            .map(s => s.trim())
-            .map(s => {
-              const m = s.match(/^(\d{1,2}):(\d{2})$/);
-              return m ? pad2(+m[1]) + ':' + m[2] : null;   // 统一补成 07:30 两位格式
-            })
-            .filter(Boolean);
-
           let frequency;
           const ft = this.taskForm.frequencyType;
           if (ft === 'daily-twice') {
@@ -2046,8 +1920,7 @@
                 childId: this.taskForm.childId,
                 name: this.taskForm.name,
                 icon: this.taskForm.icon || '⭐',
-                frequency,
-                reminders
+                frequency
               };
             }
           } else {
@@ -2057,13 +1930,11 @@
               name: this.taskForm.name,
               icon: this.taskForm.icon || '⭐',
               frequency,
-              reminders,
               enabled: true
             });
           }
           this.saveData();
           this.closeTaskModal();
-          this.checkReminders();
         },
 
         deleteTask(id) {
@@ -2096,9 +1967,6 @@
           }
           if (ti.task.frequency.type === 'weekly') {
             return `本周进度：${this.getWeeklyProgress(ti.task)}`;
-          }
-          if (ti.task.reminders && ti.task.reminders.length) {
-            return `⏰ 提醒 ${ti.task.reminders.join(', ')}`;
           }
           return '';
         },
@@ -2652,198 +2520,6 @@
           const cb = this.confirmModal.callback;
           this.confirmModal.show = false;
           if (typeof cb === 'function') cb();
-        },
-
-        // ================== 通知提醒 ==================
-        /* 已配置提醒时间的任务数 */
-        get reminderCount() {
-          if (!this.tasks) return 0;
-          return this.tasks.filter(t => t.enabled && (t.reminders || []).length).length;
-        },
-
-        /* 点击右上角：根据当前状态给出对应引导 */
-        openNotifGuide() {
-          this.notifPermission = detectNotifPermission();
-          const perm = this.notifPermission;
-          const g = { show: true, emoji: '', title: '', html: '', showEnableBtn: false, showOpenTask: false };
-
-          if (this.reminderCount === 0) {
-            g.emoji = '⏰'; g.title = '还没有设置提醒时间';
-            g.html = '提醒是在<b>每个任务</b>上单独设置时间的：<br>' +
-                     '① 点右下角 <b>任务</b> 页 → 点要提醒的任务<br>' +
-                     '② 在「⏰ 提醒时间」里填 <b>07:30</b> 这样的时刻<br>' +
-                     '③ 多个时间用逗号隔开，例如 <b>07:30, 20:00</b><br>' +
-                     '<span class="text-orange-600">设置了时间后，App 打开着就会弹提醒；开启系统通知后，锁屏也能收到。</span>';
-            g.showOpenTask = true;
-          } else if (perm === 'granted') {
-            g.emoji = '🔔'; g.title = '系统通知已开启';
-            g.html = '当前有 <b>' + this.reminderCount + '</b> 个任务设置了提醒时间。<br>' +
-                     'App 在前台时会弹提醒横幅，退到后台/锁屏时会走系统通知。<br>' +
-                     '<span class="text-gray-400 text-xs">iPhone 上请把「宝贝打卡」加主屏后从桌面图标打开，系统通知才稳定。</span>';
-          } else if (perm === 'unsupported') {
-            g.emoji = '📱'; g.title = '这个浏览器不支持系统通知';
-            g.html = '不影响使用：<b>App 打开着的时候</b>，到点会自动弹出提醒横幅 + 响铃。<br>' +
-                     '<span class="text-orange-600">iPhone 用户请点 Safari 底部「分享 → 添加到主屏幕」，再从桌面图标打开，就能开启真正的系统通知了。</span>';
-            g.showEnableBtn = false;
-          } else if (perm === 'denied') {
-            g.emoji = '🔕'; g.title = '通知权限被关掉了';
-            g.html = '之前点过「不允许」，系统不会再弹授权框，需要手动打开：<br>' +
-                     (isIOSDevice()
-                       ? 'iPhone：设置 → 通知 → 找到「宝贝打卡」→ 打开<b>允许通知</b>'
-                       : '安卓/电脑：浏览器设置 → 网站设置 → 通知 → 允许本站') +
-                     '<br><span class="text-gray-400 text-xs">改完回到这里下拉刷新一次即可。</span><br>' +
-                     '<span class="text-orange-600">等不及也没关系：App 打开着时仍会弹应用内提醒。</span>';
-            g.showEnableBtn = true;
-          } else {
-            // perm === 'default'
-            if (isIOSDevice() && !isStandaloneApp()) {
-              g.emoji = '📲'; g.title = '请先添加到主屏幕';
-              g.html = 'iPhone 上 <b>Safari 网页标签里无法开启通知</b>，要先把它装成 App：<br>' +
-                       '① 点 Safari 底部中间的 <b>分享 ⬆️</b><br>' +
-                       '② 下滑选 <b>添加到主屏幕</b><br>' +
-                       '③ 之后<b>从桌面图标</b>打开宝贝打卡，再回来开启提醒<br>' +
-                       '<span class="text-gray-400 text-xs">（iOS 16.4 及以上才支持，低于这个版本只能收到应用内提醒。）</span>';
-              g.showEnableBtn = false;
-            } else {
-              g.emoji = '🔔'; g.title = '开启提醒';
-              g.html = '开启后，到打卡时间即使 <b>App 在后台/锁屏</b> 也能收到通知。<br>' +
-                       '当前有 <b>' + this.reminderCount + '</b> 个任务设置了提醒时间。<br>' +
-                       '<span class="text-gray-400 text-xs">不确定开没开成功？下面可以先发一条测试提醒。</span>';
-              g.showEnableBtn = true;
-            }
-          }
-          this.notifGuide = g;
-        },
-
-        /* 真正向系统申请权限（必须在按钮点击里调用） */
-        async doRequestPermission() {
-          const perm = detectNotifPermission();
-          if (perm === 'unsupported') { this.showToast('此浏览器不支持系统通知'); return; }
-          try {
-            const res = await Notification.requestPermission();
-            this.notifPermission = res && res !== 'default' ? res : detectNotifPermission();
-            if (this.notifPermission === 'granted') {
-              this.notifGuide.show = false;
-              this.showToast('通知已开启 🔔');
-              this.testReminder();
-            } else {
-              this.openNotifGuide();
-            }
-          } catch (e) {
-            this.notifGuide = {
-              show: true, emoji: '📲', title: '这个环境开不了系统通知',
-              html: 'iPhone 需要先 <b>添加到主屏幕</b>，且系统要在 iOS 16.4 以上才能授权。<br>' +
-                    '在这之前，App 打开着时仍会弹提醒横幅并响铃。',
-              showEnableBtn: false, showOpenTask: false
-            };
-          }
-        },
-
-        /* 立即发一条测试提醒（系统通知 + 应用内横幅） */
-        testReminder() {
-          this.unlockAudio();
-          const c = this.activeChild;
-          this.firePendingUI('🔔 测试提醒', c ? `这是给「${c.name}」的提醒样式` : '这是提醒的样式');
-          if (detectNotifPermission() === 'granted') {
-            try {
-              new Notification('🔔 测试提醒', { body: '收到就说明系统通知正常工作', icon: 'icon.svg', tag: 'test' });
-              this.showToast('已发出测试通知');
-            } catch (e) { this.showToast('系统通知发送失败'); }
-          } else {
-            this.showToast('系统通知未开启，这是应用内提醒');
-          }
-        },
-
-        /* 提醒轮询：每 15 秒比对一次当前分钟，比长 setTimeout 可靠（iOS 后台会掐掉长定时器） */
-        startReminderLoop() {
-          if (this._reminderLoop) clearInterval(this._reminderLoop);
-          this._reminderLoop = setInterval(() => this.checkReminders(), 15000);
-          this.checkReminders();
-        },
-
-        checkReminders() {
-          if (!this.tasks || !this.tasks.length) return;
-          const now = new Date();
-          const hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
-          const today = getTodayStr();
-
-          this.tasks.forEach(task => {
-            if (!task.enabled) return;
-            const times = (task.reminders || [])
-              .map(t => { const m = String(t).match(/^(\d{1,2}):(\d{2})$/); return m ? pad2(+m[1]) + ':' + m[2] : null; })
-              .filter(Boolean);
-            if (!times.length) return;
-            times.forEach(time => {
-              if (time !== hhmm) return;
-              const key = `${today}|${task.id}|${time}`;
-              if (this.firedReminders[key]) return;
-              // 这一天的这个任务已经全部打完卡 → 不再打扰
-              if (this._undoneCount(task, today) === 0) return;
-              this.firedReminders[key] = 1;
-              this.fireTaskReminder(task, time);
-            });
-          });
-        },
-
-        /* 某任务在指定日期还剩几项没完成 */
-        _undoneCount(task, day) {
-          const items = this._expandTask(task, day) || [];
-          return items.filter(it => !this.isCompleted(it.key)).length;
-        },
-
-        fireTaskReminder(task, time) {
-          const child = this.getChildById(task.childId);
-          const who = child ? child.name : '';
-          const left = this._undoneCount(task, getTodayStr());
-          const title = `⏰ ${time} ${who ? who + ' · ' : ''}${task.name}`;
-          const body = left > 0 ? `到点啦！今天这项还没打卡，加油～` : '到点啦！';
-
-          if (detectNotifPermission() === 'granted') {
-            try {
-              new Notification(title, {
-                body, icon: 'icon.svg', tag: `${task.id}-${time}`, requireInteraction: false
-              });
-            } catch (e) { /* 忽略，下面还有应用内兜底 */ }
-          }
-          this.firePendingUI(title, body);
-        },
-
-        /* 应用内横幅 + 振动 + 响铃（不依赖任何权限） */
-        firePendingUI(title, body) {
-          this.reminderBanner = { show: true, title, body };
-          if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120]); } catch (e) {} }
-          this.beep();
-          if (this._bannerTimer) clearTimeout(this._bannerTimer);
-          this._bannerTimer = setTimeout(() => { this.reminderBanner.show = false; }, 15000);
-        },
-
-        unlockAudio() {
-          try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return;
-            if (!this._ac) this._ac = new AC();
-            if (this._ac.state === 'suspended') this._ac.resume();
-          } catch (e) {}
-        },
-
-        /* 合成两声"叮咚"，不需要音频文件 */
-        beep() {
-          try {
-            this.unlockAudio();
-            const ctx = this._ac;
-            if (!ctx) return;
-            [[988, 0], [1319, 0.18]].forEach(([freq, offset]) => {
-              const osc = ctx.createOscillator(), gain = ctx.createGain();
-              osc.type = 'sine';
-              osc.frequency.value = freq;
-              const t0 = ctx.currentTime + offset;
-              gain.gain.setValueAtTime(0.0001, t0);
-              gain.gain.linearRampToValueAtTime(0.25, t0 + 0.02);
-              gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42);
-              osc.connect(gain); gain.connect(ctx.destination);
-              osc.start(t0); osc.stop(t0 + 0.45);
-            });
-          } catch (e) {}
         },
 
         // ================== UI 辅助 ==================
