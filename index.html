@@ -773,11 +773,15 @@
             <div class="grid grid-cols-2 gap-2 mb-4">
               <template x-for="item in catItems.filter(i => i.kind === 'use')" :key="item.id">
                 <button @click="spendOnCat(item)"
-                        class="bg-white rounded-2xl p-3 border border-gray-100 text-left active:scale-95">
+                        class="bg-white rounded-2xl p-3 border text-left active:scale-95"
+                        :class="ownsItem(item.id) ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-100'">
                   <div class="flex items-center gap-2">
                     <span class="text-xl" x-text="item.icon"></span>
                     <div class="flex-1 min-w-0">
-                      <div class="text-sm font-bold text-gray-800" x-text="item.name"></div>
+                      <div class="text-sm font-bold text-gray-800 flex items-center gap-1">
+                        <span x-text="item.name"></span>
+                        <span x-show="ownsItem(item.id)" class="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">已摆好</span>
+                      </div>
                       <div class="text-[10px] text-gray-400 truncate" x-text="item.desc"></div>
                     </div>
                   </div>
@@ -1256,17 +1260,29 @@
       { name: '成年期', min: 700, age: '1 岁' }
     ];
 
+    /* 全部统一 1 积分，孩子攒够 1 颗星就能给猫买东西 */
     const CAT_ITEMS = [
-      { id: 'food', name: '猫粮', icon: '🍚', cost: 5, kind: 'use', desc: '饱食 +30', fullness: 30, mood: 0 },
-      { id: 'can', name: '罐头', icon: '🥫', cost: 12, kind: 'use', desc: '饱食 +50，心情 +5', fullness: 50, mood: 5 },
-      { id: 'bath', name: '洗个澡', icon: '🛁', cost: 8, kind: 'use', desc: '心情 +15', fullness: 0, mood: 15 },
-      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 25, kind: 'wear', slot: 'neck', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
-      { id: 'sweater', name: '小毛衣', icon: '🧥', cost: 35, kind: 'wear', slot: 'body', desc: '暖和又好看', mood: 40, decayCut: 3 },
-      { id: 'hat', name: '小帽子', icon: '🧢', cost: 30, kind: 'wear', slot: 'head', desc: '戴上很神气', mood: 40, decayCut: 3 },
-      { id: 'ball', name: '毛线球', icon: '🧶', cost: 20, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
-      { id: 'wand', name: '逗猫棒', icon: '🪶', cost: 20, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
-      { id: 'tower', name: '猫爬架', icon: '🏰', cost: 60, kind: 'toy', desc: '每天陪玩 1 次，心情 +10', play: 10 }
+      { id: 'food', name: '猫粮', icon: '🍚', cost: 1, kind: 'use', desc: '摆上饭碗，饱食 +30', fullness: 30, mood: 0 },
+      { id: 'can', name: '罐头', icon: '🥫', cost: 1, kind: 'use', desc: '开一罐，饱食 +50，心情 +5', fullness: 50, mood: 5 },
+      { id: 'bath', name: '洗个澡', icon: '🛁', cost: 1, kind: 'use', desc: '泡泡浴小黄鸭，心情 +15', fullness: 0, mood: 15 },
+      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 1, kind: 'wear', slot: 'neck', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
+      { id: 'sweater', name: '小毛衣', icon: '🧥', cost: 1, kind: 'wear', slot: 'body', desc: '暖和又好看', mood: 40, decayCut: 3 },
+      { id: 'hat', name: '小帽子', icon: '🧢', cost: 1, kind: 'wear', slot: 'head', desc: '戴上很神气', mood: 40, decayCut: 3 },
+      { id: 'ball', name: '毛线球', icon: '🧶', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
+      { id: 'wand', name: '逗猫棒', icon: '🪶', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
+      { id: 'tower', name: '猫爬架', icon: '🏰', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +10', play: 10 }
     ];
+
+    /* 买过的东西摆在猫脚边的固定位置（买了什么，猫跟前就有什么）
+       坐标是 viewBox(160×160) 里的「落地锚点」，互不重叠：左三件 / 右三件 */
+    const CAT_PROP_POS = {
+      tower: [11, 147],   // ① 左：猫爬架
+      food:  [33, 151],   // ② 左前：猫粮碗
+      bath:  [55, 152],   // ③ 猫左脚前：泡泡浴小黄鸭
+      ball:  [108, 153],  // ④ 猫右脚前：毛线球
+      can:   [131, 152],  // ⑤ 右：罐头
+      wand:  [146, 150]   // ⑥ 最右斜靠：逗猫棒
+    };
 
     const CAT_WEAR_COLOR = { bow: '#ec4899', sweater: '#fb7185', hat: '#60a5fa' };
 
@@ -1280,6 +1296,79 @@
         percent: next ? Math.min(100, Math.round((exp - base) / (top - base) * 100)) : 100,
         need: next ? Math.max(0, top - exp) : 0
       };
+    }
+
+    /* ---- 猫脚边的道具摆件（每个以底部中心为原点 0,0） ---- */
+    const CAT_PROP_ART = {
+      /* 猫粮碗 */
+      food: '<ellipse cx="0" cy="1.5" rx="11.5" ry="2.6" fill="#94a3b8" opacity="0.25"/>'
+          + '<path d="M-11 -3 C-11 5 -6 8.5 0 8.5 C6 8.5 11 5 11 -3 Z" fill="#fb7185" stroke="#e11d48" stroke-width="0.9" stroke-linejoin="round"/>'
+          + '<path d="M-8 -1 q2.2 4.2 5.2 5" stroke="#fda4af" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.9"/>'
+          + '<ellipse cx="0" cy="-3" rx="11" ry="3.8" fill="#fecdd3" stroke="#e11d48" stroke-width="0.8"/>'
+          + '<path d="M-6.5 -4 C-5.5 -9.5 5.5 -9.5 6.5 -4 Z" fill="#eab308"/>'
+          + '<circle cx="-2.6" cy="-5.8" r="1.15" fill="#a16207"/><circle cx="2.2" cy="-6.2" r="1.05" fill="#a16207"/><circle cx="0" cy="-4.2" r="1.2" fill="#a16207"/>'
+          + '<ellipse cx="-7.5" cy="-3.4" rx="2.4" ry="1" fill="#fff" opacity="0.55"/>',
+      /* 打开的罐头 */
+      can: '<ellipse cx="0" cy="1" rx="8.5" ry="2.4" fill="#94a3b8" opacity="0.25"/>'
+          + '<rect x="-7" y="-12" width="14" height="12" rx="1.6" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.9"/>'
+          + '<rect x="-7" y="-9.4" width="14" height="6" fill="#fb923c"/>'
+          + '<circle cx="-2.6" cy="-6.4" r="1.5" fill="#fff7ed"/><circle cx="2.6" cy="-6.4" r="1.5" fill="#fff7ed"/>'
+          + '<path d="M-7 -3.4 q7 -2.4 14 0" stroke="#94a3b8" stroke-width="0.7" fill="none" opacity="0.6"/>'
+          + '<ellipse cx="0" cy="-12" rx="7" ry="2.7" fill="#e2e8f0" stroke="#94a3b8" stroke-width="0.9"/>'
+          + '<path d="M-3 -12.6 q3 -3.4 6 0 z" fill="#fca5a5"/>'
+          + '<ellipse cx="9.5" cy="-3.5" rx="6" ry="2.2" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.9" transform="rotate(-72 9.5 -3.5)"/>',
+      /* 泡泡浴 + 小黄鸭 */
+      bath: '<ellipse cx="0" cy="1.2" rx="8.5" ry="2.3" fill="#94a3b8" opacity="0.22"/>'
+          + '<circle cx="7.5" cy="-13.5" r="3.4" fill="#fff" opacity="0.82" stroke="#bae6fd" stroke-width="0.9"/>'
+          + '<circle cx="-0.5" cy="-18" r="2.4" fill="#fff" opacity="0.82" stroke="#bae6fd" stroke-width="0.85"/>'
+          + '<circle cx="4.5" cy="-22.5" r="1.7" fill="#fff" opacity="0.82" stroke="#bae6fd" stroke-width="0.8"/>'
+          + '<path d="M-6.5 -0.5 C-7.5 -7 -1.5 -9.5 2 -8.5 C6.2 -8.4 8.4 -5 7.4 -0.5 Z" fill="#fde047" stroke="#eab308" stroke-width="0.9" stroke-linejoin="round"/>'
+          + '<path d="M2 -8 C6 -11 9 -8 7.4 -4.6" fill="#fde047" stroke="#eab308" stroke-width="0.9"/>'
+          + '<circle cx="-4.8" cy="-9.2" r="3.4" fill="#fde047" stroke="#eab308" stroke-width="0.9"/>'
+          + '<circle cx="-5.9" cy="-9.8" r="0.9" fill="#3f3f46"/>'
+          + '<circle cx="-6.1" cy="-10.1" r="0.3" fill="#fff"/>'
+          + '<path d="M-8.2 -8.6 l-3.2 1 3.2 1.1 z" fill="#fb923c"/>'
+          + '<path d="M-2.5 -3 q3 2 6 0" stroke="#eab308" stroke-width="0.9" fill="none"/>',
+      /* 毛线球 */
+      ball: '<ellipse cx="0" cy="1" rx="7.5" ry="2.2" fill="#94a3b8" opacity="0.25"/>'
+          + '<circle cx="0" cy="-7" r="7" fill="#c4b5fd" stroke="#8b5cf6" stroke-width="0.9"/>'
+          + '<path d="M-6.2 -4.4 q7 3.4 4.2 9.4" stroke="#8b5cf6" stroke-width="1" fill="none" opacity="0.75"/>'
+          + '<path d="M-1.4 -13.8 q7.4 2.4 6.4 9.6" stroke="#8b5cf6" stroke-width="1" fill="none" opacity="0.75"/>'
+          + '<path d="M-3.4 -1.6 q7.6 1 6.6 8.4" stroke="#8b5cf6" stroke-width="0.9" fill="none" opacity="0.6"/>'
+          + '<ellipse cx="-2.6" cy="-10" rx="2.4" ry="1.5" fill="#ddd6fe" opacity="0.8" transform="rotate(-28 -2.6 -10)"/>'
+          + '<path d="M6.4 -3.2 q4.6 4.6 8.6 3.6" stroke="#8b5cf6" stroke-width="1.3" fill="none" stroke-linecap="round"/>',
+      /* 逗猫棒（斜靠） */
+      wand: '<ellipse cx="0" cy="1" rx="7" ry="2" fill="#94a3b8" opacity="0.22"/>'
+          + '<g transform="rotate(13)">'
+          + '<path d="M0 0 L0 -21" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/>'
+          + '<path d="M0 -19 q-0.6 -1.2 0 -2.6" stroke="#fbbf24" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+          + '<path d="M0 -21 C-6.5 -23 -8 -29 -2.5 -31 C2.6 -29 2.6 -23 0 -21 Z" fill="#f472b6" stroke="#db2777" stroke-width="0.8"/>'
+          + '<path d="M0 -21 C6.5 -23 8.6 -28.6 4 -30.6 C1.6 -29.6 0.4 -24.6 0 -21 Z" fill="#fbbf24" stroke="#d97706" stroke-width="0.8"/>'
+          + '<path d="M0 -21 C-3 -26 -0.6 -30.4 2 -29.6 C4.4 -27.6 3.4 -23.4 0 -21 Z" fill="#60a5fa" stroke="#2563eb" stroke-width="0.8" opacity="0.95"/>'
+          + '<circle cx="0" cy="-19.4" r="2.2" fill="#fbbf24" stroke="#b45309" stroke-width="0.8"/>'
+          + '</g>',
+      /* 猫爬架 */
+      tower: '<ellipse cx="0" cy="1.5" rx="10.5" ry="2.5" fill="#94a3b8" opacity="0.25"/>'
+          + '<rect x="-9" y="-3" width="18" height="4" rx="1.8" fill="#c9a227" stroke="#a16207" stroke-width="0.8"/>'
+          + '<rect x="-2.2" y="-17.5" width="4.4" height="15" rx="2.2" fill="#e6cfae" stroke="#c4a484" stroke-width="0.8"/>'
+          + '<g stroke="#b45309" stroke-width="0.85" opacity="0.55"><path d="M-2.2 -6.5 l4.4 -2.8"/><path d="M-2.2 -10 l4.4 -2.8"/><path d="M-2.2 -13.5 l4.4 -2.8"/></g>'
+          + '<rect x="-9.5" y="-22.5" width="19" height="5.6" rx="2.6" fill="#e6cfae" stroke="#c4a484" stroke-width="0.8"/>'
+          + '<rect x="-9.5" y="-13.5" width="7.4" height="3.4" rx="1.6" fill="#f3e3c8" stroke="#c4a484" stroke-width="0.8"/>'
+          + '<path d="M7.6 -13.5 q3.4 -1.6 4.6 1.2" stroke="#c4a484" stroke-width="0.8" fill="none"/>'
+          + '<circle cx="-6" cy="-2.6" r="1.3" fill="#fff" opacity="0.5"/>'
+    };
+
+    /* 把买过的道具按固定位置摆到猫脚边 */
+    function renderCatProps(cat) {
+      const owned = (cat.items || []).map(i => i.itemId);
+      if (!owned.length) return '';
+      let s = '';
+      for (const id in CAT_PROP_POS) {
+        if (owned.indexOf(id) < 0) continue;
+        const p = CAT_PROP_POS[id];
+        s += '<g transform="translate(' + p[0] + ' ' + p[1] + ')">' + (CAT_PROP_ART[id] || '') + '</g>';
+      }
+      return s;
     }
 
     // 颜色深浅微调（用于毛色渐变）
@@ -1569,7 +1658,11 @@
         }
       }
 
-      s += '</g>';
+      s += '</g>';   // /cat-hop（道具不跟着弹跳，稳稳站在地上）
+
+      /* ---------- 买过的东西，摆在猫脚边 ---------- */
+      s += renderCatProps(cat);
+
       s += '</g>';
       s += '</svg>';
       return s;
@@ -2293,12 +2386,17 @@
           const apply = () => {
             cat.fullness = Math.min(100, (cat.fullness ?? 0) + (item.fullness || 0));
             cat.mood = Math.min(100, (cat.mood ?? 0) + (item.mood || 0));
-            if (item.kind === 'wear' || item.kind === 'toy') {
+            /* 买了就摆在猫脚边（同一种只留一份，重复买更新日期） */
+            if (!cat.items) cat.items = [];
+            const owned = cat.items.find(i => i.itemId === item.id);
+            if (owned) {
+              owned.boughtAt = this.today;
+            } else {
               cat.items.push({ itemId: item.id, boughtAt: this.today, lastPlayDate: '' });
-              if (item.kind === 'wear') {
-                if (!cat.wearing) cat.wearing = [];
-                if (!cat.wearing.includes(item.id)) cat.wearing.push(item.id);
-              }
+            }
+            if (item.kind === 'wear') {
+              if (!cat.wearing) cat.wearing = [];
+              if (!cat.wearing.includes(item.id)) cat.wearing.push(item.id);
             }
             this.exchanges.push({
               id: 'ex-' + Math.random().toString(36).substr(2, 9),
