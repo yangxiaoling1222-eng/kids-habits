@@ -823,17 +823,22 @@
             <template x-if="activeCat && activeCat.items.filter(i => catItems.find(x => x.id === i.itemId && x.kind === 'wear')).length">
               <div class="mb-4">
                 <h3 class="font-bold text-gray-700 mb-2">👗 衣柜</h3>
-                <div class="flex flex-wrap gap-2">
-                  <template x-for="owned in activeCat.items.filter(i => catItems.find(x => x.id === i.itemId && x.kind === 'wear'))" :key="owned.itemId">
-                    <button @click="toggleWear(owned.itemId)"
-                            class="px-3 py-2 rounded-xl text-sm font-medium active:scale-95"
-                            :class="isWearing(owned.itemId) ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' : 'bg-gray-50 text-gray-500 border border-gray-100'">
-                      <span x-text="catItems.find(x => x.id === owned.itemId).icon"></span>
-                      <span x-text="catItems.find(x => x.id === owned.itemId).name"></span>
-                      <span class="text-[10px]" x-text="isWearing(owned.itemId) ? '穿着' : '收着'"></span>
-                    </button>
-                  </template>
-                </div>
+                <template x-for="part in [{k:'head',t:'🌸 头花（可以一起戴）'},{k:'body',t:'👗 身上（一次穿一件）'},{k:'other',t:'🎀 其它小配件'}]" :key="part.k">
+                  <div class="mb-2" x-show="catWearCount(part.k)">
+                    <div class="text-[11px] text-gray-400 mb-1.5" x-text="part.t"></div>
+                    <div class="flex flex-wrap gap-2">
+                      <template x-for="owned in catWearOwned(part.k)" :key="owned.itemId">
+                        <button @click="toggleWear(owned.itemId)"
+                                class="px-3 py-2 rounded-xl text-sm font-medium active:scale-95"
+                                :class="isWearing(owned.itemId) ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' : 'bg-gray-50 text-gray-500 border border-gray-100'">
+                          <span x-text="catItems.find(x => x.id === owned.itemId).icon"></span>
+                          <span x-text="catItems.find(x => x.id === owned.itemId).name"></span>
+                          <span class="text-[10px]" x-text="isWearing(owned.itemId) ? '穿着' : '收着'"></span>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
               </div>
             </template>
 
@@ -865,28 +870,40 @@
               <button @click="catView = 'main'" class="text-gray-500 text-sm font-bold px-2">‹ 返回</button>
               <h2 class="font-bold text-gray-800">🛒 猫咪商店</h2>
             </div>
-            <p class="text-xs text-gray-400 mb-3">用积分购买，会和愿望礼物共用同一份积分。</p>
-            <div class="space-y-2">
-              <template x-for="item in catItems.filter(i => i.kind !== 'use')" :key="item.id">
-                <div class="bg-white rounded-2xl p-3 border flex items-center gap-3"
-                     :class="ownsItem(item.id) ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-100'">
-                  <span class="text-2xl" x-text="item.icon"></span>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-bold text-gray-800" x-text="item.name"></div>
-                    <div class="text-[11px] text-gray-400" x-text="item.desc"></div>
-                  </div>
-                  <button x-show="!ownsItem(item.id)"
-                          @click="spendOnCat(item)"
-                          :disabled="activeCat && getAvailablePoints(activeCat.childId) < item.cost"
-                          class="text-xs font-bold px-3 py-1.5 rounded-full active:scale-95"
-                          :class="activeCat && getAvailablePoints(activeCat.childId) >= item.cost
-                                  ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white'
-                                  : 'bg-gray-100 text-gray-400'"
-                          x-text="`${item.cost} ⭐`"></button>
-                  <span x-show="ownsItem(item.id)" class="text-xs font-bold text-emerald-600">已拥有</span>
+            <p class="text-xs text-gray-400 mb-3">全都 1 积分。买来的头花可以一起戴，花裙子一次穿一条，花瓶花盆会摆在猫脚边。</p>
+            <template x-for="g in catItemGroups" :key="g.key">
+              <div class="mb-4">
+                <div class="flex items-baseline gap-2 mb-2 px-0.5">
+                  <h3 class="font-bold text-gray-700 text-sm" x-text="g.title"></h3>
+                  <span class="text-[10px] text-gray-400 flex-1 truncate" x-text="g.hint"></span>
                 </div>
-              </template>
-            </div>
+                <div class="space-y-2">
+                  <template x-for="item in catItems.filter(i => i.group === g.key && i.kind !== 'use')" :key="item.id">
+                    <div class="bg-white rounded-2xl p-3 border flex items-center gap-3"
+                         :class="ownsItem(item.id) ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-100'">
+                      <span class="text-2xl" x-text="item.icon"></span>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-bold text-gray-800 flex items-center gap-1">
+                          <span x-text="item.name"></span>
+                          <span x-show="item.kind === 'wear' && isWearing(item.id)"
+                                class="text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">戴着</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400" x-text="item.desc"></div>
+                      </div>
+                      <button x-show="!ownsItem(item.id)"
+                              @click="spendOnCat(item)"
+                              :disabled="activeCat && getAvailablePoints(activeCat.childId) < item.cost"
+                              class="text-xs font-bold px-3 py-1.5 rounded-full active:scale-95"
+                              :class="activeCat && getAvailablePoints(activeCat.childId) >= item.cost
+                                      ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white'
+                                      : 'bg-gray-100 text-gray-400'"
+                              x-text="`${item.cost} ⭐`"></button>
+                      <span x-show="ownsItem(item.id)" class="text-xs font-bold text-emerald-600">已拥有</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- 日记 -->
@@ -1260,31 +1277,84 @@
       { name: '成年期', min: 700, age: '1 岁' }
     ];
 
-    /* 全部统一 1 积分，孩子攒够 1 颗星就能给猫买东西 */
-    const CAT_ITEMS = [
-      { id: 'food', name: '猫粮', icon: '🍚', cost: 1, kind: 'use', desc: '摆上饭碗，饱食 +30', fullness: 30, mood: 0 },
-      { id: 'can', name: '罐头', icon: '🥫', cost: 1, kind: 'use', desc: '开一罐，饱食 +50，心情 +5', fullness: 50, mood: 5 },
-      { id: 'bath', name: '洗个澡', icon: '🛁', cost: 1, kind: 'use', desc: '泡泡浴小黄鸭，心情 +15', fullness: 0, mood: 15 },
-      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 1, kind: 'wear', slot: 'neck', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
-      { id: 'sweater', name: '小毛衣', icon: '🧥', cost: 1, kind: 'wear', slot: 'body', desc: '暖和又好看', mood: 40, decayCut: 3 },
-      { id: 'hat', name: '小帽子', icon: '🧢', cost: 1, kind: 'wear', slot: 'head', desc: '戴上很神气', mood: 40, decayCut: 3 },
-      { id: 'ball', name: '毛线球', icon: '🧶', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
-      { id: 'wand', name: '逗猫棒', icon: '🪶', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
-      { id: 'tower', name: '猫爬架', icon: '🏰', cost: 1, kind: 'toy', desc: '每天陪玩 1 次，心情 +10', play: 10 }
+    /* ===== 头花：可以同时戴好几朵，沿头顶（或帽檐）排开 ===== */
+    const CAT_HEAD_FLOWERS = [
+      { id: 'fh_sakura',   name: '樱花发夹', icon: '🌸', petal: '#fbcfe8', edge: '#f472b6', core: '#fde047', leaf: '#86efac' },
+      { id: 'fh_sun',      name: '向日葵',   icon: '🌻', petal: '#fde047', edge: '#f59e0b', core: '#78350f', leaf: '#4ade80' },
+      { id: 'fh_tulip',    name: '郁金香',   icon: '🌷', petal: '#f9a8d4', edge: '#db2777', core: '#fecdd3', leaf: '#86efac' },
+      { id: 'fh_daisy',    name: '小雏菊',   icon: '🌼', petal: '#ffffff', edge: '#fcd34d', core: '#fbbf24', leaf: '#86efac' },
+      { id: 'fh_lavender', name: '薰衣草',   icon: '🪻', petal: '#c4b5fd', edge: '#7c3aed', core: '#ede9fe', leaf: '#a3e635' },
+      { id: 'fh_rose',     name: '小红花',   icon: '🌹', petal: '#fb7185', edge: '#be123c', core: '#fecdd3', leaf: '#4ade80' }
+    ];
+    const HEAD_FLOWER_IDS = CAT_HEAD_FLOWERS.map(f => f.id);
+    function headFlowerOf(id) { return CAT_HEAD_FLOWERS.find(f => f.id === id); }
+
+    /* ===== 花裙子：同时只能穿一条，买来的都收在衣柜里 ===== */
+    const CAT_DRESSES = [
+      { id: 'fd_pink',    name: '粉色花裙', icon: '👗', cloth: '#fbcfe8', dark: '#f472b6', dot: '#ffffff', flower: '#f472b6' },
+      { id: 'fd_blue',    name: '蓝色花裙', icon: '👗', cloth: '#bfdbfe', dark: '#3b82f6', dot: '#ffffff', flower: '#60a5fa' },
+      { id: 'fd_yellow',  name: '黄色花裙', icon: '👗', cloth: '#fde68a', dark: '#f59e0b', dot: '#ffffff', flower: '#f59e0b' },
+      { id: 'fd_purple',  name: '紫色花裙', icon: '👗', cloth: '#e9d5ff', dark: '#9333ea', dot: '#ffffff', flower: '#a855f7' },
+      { id: 'fd_green',   name: '绿色花裙', icon: '👗', cloth: '#bbf7d0', dark: '#10b981', dot: '#ffffff', flower: '#10b981' },
+      { id: 'fd_rainbow', name: '彩虹花裙', icon: '🌈', cloth: '#ffffff', dark: '#f472b6', dot: '#ffffff', flower: '#f472b6', rainbow: true }
+    ];
+    const DRESS_IDS = CAT_DRESSES.map(d => d.id);
+    function dressOf(id) { return CAT_DRESSES.find(d => d.id === id); }
+
+    /* 商店分区 */
+    const CAT_ITEM_GROUPS = [
+      { key: 'head',   title: '🌸 头花',     hint: '可以一起戴好几朵，戴满整个头顶' },
+      { key: 'dress',  title: '👗 花裙子',   hint: '一次只能穿一条，买来的都收在衣柜' },
+      { key: 'flower', title: '💐 鲜花',     hint: '花环、花束、花瓶、花盆' },
+      { key: 'toy',    title: '🧸 玩具',     hint: '每天陪玩一次，心情涨得快' },
+      { key: 'basic',  title: '🍽 吃喝打扮', hint: '猫粮、罐头、洗澡和其它装扮' }
     ];
 
-    /* 买过的东西摆在猫脚边的固定位置（买了什么，猫跟前就有什么）
-       坐标是 viewBox(160×160) 里的「落地锚点」，互不重叠：左三件 / 右三件 */
-    const CAT_PROP_POS = {
-      tower: [11, 147],   // ① 左：猫爬架
-      food:  [33, 151],   // ② 左前：猫粮碗
-      bath:  [55, 152],   // ③ 猫左脚前：泡泡浴小黄鸭
-      ball:  [108, 153],  // ④ 猫右脚前：毛线球
-      can:   [131, 152],  // ⑤ 右：罐头
-      wand:  [146, 150]   // ⑥ 最右斜靠：逗猫棒
-    };
+    /* 全部统一 1 积分，孩子攒够 1 颗星就能给猫买东西 */
+    const CAT_ITEMS = [
+      { id: 'food', name: '猫粮', icon: '🍚', cost: 1, kind: 'use', group: 'basic', desc: '摆上饭碗，饱食 +30', fullness: 30, mood: 0 },
+      { id: 'can', name: '罐头', icon: '🥫', cost: 1, kind: 'use', group: 'basic', desc: '开一罐，饱食 +50，心情 +5', fullness: 50, mood: 5 },
+      { id: 'bath', name: '洗个澡', icon: '🛁', cost: 1, kind: 'use', group: 'basic', desc: '泡泡浴小黄鸭，心情 +15', fullness: 0, mood: 15 },
+      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 1, kind: 'wear', slot: 'neck', group: 'basic', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
+      { id: 'hat', name: '小帽子', icon: '🧢', cost: 1, kind: 'wear', slot: 'head-cover', group: 'basic', desc: '戴上很神气', mood: 40, decayCut: 3 },
+      { id: 'sweater', name: '小毛衣', icon: '🧥', cost: 1, kind: 'wear', slot: 'body', group: 'dress', desc: '暖和又好看', mood: 40, decayCut: 3 },
+      { id: 'ball', name: '毛线球', icon: '🧶', cost: 1, kind: 'toy', group: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
+      { id: 'wand', name: '逗猫棒', icon: '🪶', cost: 1, kind: 'toy', group: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
+      { id: 'tower', name: '猫爬架', icon: '🏰', cost: 1, kind: 'toy', group: 'toy', desc: '每天陪玩 1 次，心情 +10', play: 10 }
+    ]
+      .concat(CAT_HEAD_FLOWERS.map(f => ({
+        id: f.id, name: f.name, icon: f.icon, cost: 1, kind: 'wear', slot: 'head', group: 'head',
+        desc: '别在小脑袋上，心情 +3', mood: 3, decayCut: 1
+      })))
+      .concat(CAT_DRESSES.map(d => ({
+        id: d.id, name: d.name, icon: d.icon, cost: 1, kind: 'wear', slot: 'body', group: 'dress',
+        desc: '换上新裙子，心情 +6', mood: 6, decayCut: 2
+      })))
+      .concat([
+        { id: 'fw_wreath',  name: '鲜花花环', icon: '🌿', cost: 1, kind: 'wear', slot: 'neck', group: 'flower', desc: '戴在脖子上，心情 +8', mood: 8, decayCut: 2 },
+        { id: 'fl_bouquet', name: '鲜花花束', icon: '💐', cost: 1, kind: 'wear', slot: 'paw',  group: 'flower', desc: '抱在小爪子里，心情 +10', mood: 10, decayCut: 2 },
+        { id: 'fl_vase',    name: '鲜花花瓶', icon: '🏺', cost: 1, kind: 'deco', group: 'flower', desc: '插满鲜花，摆在猫脚边', mood: 6, decayCut: 1 },
+        { id: 'fl_pot',     name: '小花盆',   icon: '🪴', cost: 1, kind: 'deco', group: 'flower', desc: '养一盆小花，摆在猫脚边', mood: 6, decayCut: 1 }
+      ]);
 
-    const CAT_WEAR_COLOR = { bow: '#ec4899', sweater: '#fb7185', hat: '#60a5fa' };
+    /* 买过的东西摆在猫脚边（买了什么，猫跟前就有什么）。
+       前排 6 个位置最先占用，买多了再往后排摆（后排稍小、更靠后）。
+       画的时候 y 小的先画，后排自然被前排挡住一点点，看起来有前后层次。 */
+    const PROP_SLOTS_FRONT = [
+      [52, 153, 1], [112, 153, 1],      // 最贴近猫的两只前爪
+      [36, 154, 1], [128, 153, 1],
+      [20, 152, 1], [144, 151, 1]
+    ];
+    /* 后排：更靠外、更靠后、也更小（透视上站得远一点） */
+    const PROP_SLOTS_BACK = [
+      [14, 130, 0.6], [152, 129, 0.6],
+      [30, 132, 0.62], [134, 132, 0.62]
+    ];
+    const PROP_SLOTS = PROP_SLOTS_FRONT.concat(PROP_SLOTS_BACK);
+    /* 摆放顺序固定，不随购买顺序变化，免得位置乱跳 */
+    const PROP_ORDER = ['food', 'bath', 'can', 'ball', 'fl_vase', 'fl_pot', 'tower', 'wand'];
+    /* 个子高的去后排：不挡别人，也不被别人挡住 */
+    const PROP_TALL = ['fl_vase', 'wand', 'fl_pot', 'tower'];
 
     function catStageOf(exp) {
       let i = 0;
@@ -1296,6 +1366,132 @@
         percent: next ? Math.min(100, Math.round((exp - base) / (top - base) * 100)) : 100,
         need: next ? Math.max(0, top - exp) : 0
       };
+    }
+
+    /* ---- 小花：5 片花瓣 + 花心（以花心 cx,cy 为原点，r 为花半径） ---- */
+    function miniFlower(cx, cy, r, petal, core, edge) {
+      let s = '';
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        s += '<circle cx="' + fnum(cx + Math.cos(a) * r * 0.62) + '" cy="' + fnum(cy + Math.sin(a) * r * 0.62)
+          + '" r="' + fnum(r * 0.55) + '" fill="' + petal + '"'
+          + (edge ? ' stroke="' + edge + '" stroke-width="0.55"' : '') + '/>';
+      }
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + fnum(r * 0.34) + '" fill="' + core + '"/>';
+      return s;
+    }
+
+    /* ---- 花裙子：画在身体轮廓内，所以下摆自然贴合身形 ---- */
+    const DRESS_PATH = 'M56 103 q24 -8 48 0 l7 46 q-31 11 -62 0 z';
+    function renderDress(d, uid) {
+      let s = '';
+      s += '<path d="' + DRESS_PATH + '" fill="' + d.cloth + '"/>';
+      if (d.rainbow) {
+        /* 彩虹竖条（裁在裙身里） */
+        const cols = ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#c4b5fd'];
+        s += '<g clip-path="url(#' + uid + ')">';
+        for (let i = 0; i < cols.length; i++) {
+          s += '<rect x="' + (48 + i * 11) + '" y="94" width="12" height="62" fill="' + cols[i] + '" opacity="0.9"/>';
+        }
+        s += '</g>';
+      }
+      /* 裙身上的小碎花（挑两条前腿挡不到的地方：腰上、腿缝、两侧裙摆） */
+      s += miniFlower(80, 110, 3.6, d.flower, '#fde047');
+      s += miniFlower(68, 108, 3.2, d.flower, '#fde047');
+      s += miniFlower(92, 108, 3.2, d.flower, '#fde047');
+      s += miniFlower(53, 138, 3.4, d.flower, '#fde047');
+      s += miniFlower(107, 138, 3.4, d.flower, '#fde047');
+      s += miniFlower(80, 118, 3, d.flower, '#fde047');
+      /* 收边 + 腰线 + 波浪裙摆 */
+      s += '<path d="' + DRESS_PATH + '" fill="none" stroke="' + d.dark + '" stroke-width="1.2" opacity="0.65"/>';
+      s += '<path d="M56 103 q24 -8 48 0" fill="none" stroke="' + d.dark + '" stroke-width="2.8" stroke-linecap="round"/>';
+      s += '<path d="M50 147 q6.5 6 13 0 q6.5 6 13 0 q6.5 6 13 0 q6.5 6 13 0" fill="none" stroke="' + d.dark + '" stroke-width="1.8" opacity="0.85"/>';
+      /* 小腰带蝴蝶结 */
+      s += '<g transform="translate(80 104)">'
+        + '<path d="M0 0 C-5 -4 -8 -1 -5 2 C-2.6 4 -0.6 1.4 0 0 Z" fill="' + d.dark + '"/>'
+        + '<path d="M0 0 C5 -4 8 -1 5 2 C2.6 4 0.6 1.4 0 0 Z" fill="' + d.dark + '"/>'
+        + '<circle cx="0" cy="0.6" r="1.5" fill="#ffffff" opacity="0.85"/></g>';
+      return s;
+    }
+
+    /* ---- 戴在脖子上的鲜花花环 ---- */
+    function renderWreath() {
+      let s = '<g>';
+      s += '<ellipse cx="80" cy="102" rx="22" ry="7.5" fill="none" stroke="#15803d" stroke-width="2.6"/>';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const x = fnum(80 + Math.cos(a) * 22), y = fnum(102 + Math.sin(a) * 7.5);
+        s += '<ellipse cx="' + x + '" cy="' + y + '" rx="3.4" ry="2.3" fill="' + (i % 2 ? '#4ade80' : '#22c55e')
+          + '" stroke="#15803d" stroke-width="0.5" transform="rotate(' + Math.round(a * 57.3 + 90) + ' ' + x + ' ' + y + ')"/>';
+      }
+      s += miniFlower(63, 100, 4.2, '#fb7185', '#fde047');
+      s += miniFlower(80, 96.5, 3.8, '#ffffff', '#fbbf24');
+      s += miniFlower(97, 100, 4.2, '#f9a8d4', '#fde047');
+      s += '</g>';
+      return s;
+    }
+
+    /* ---- 抱在小爪子里的鲜花花束（底部中心为原点） ---- */
+    function renderBouquet() {
+      let s = '<g transform="translate(80 146)">';
+      s += '<g stroke="#16a34a" stroke-width="1.6" fill="none" stroke-linecap="round">'
+        + '<path d="M0 -14 L-6 -26"/><path d="M0 -14 L0 -30"/><path d="M0 -14 L6 -26"/></g>';
+      s += '<path d="M0 -2 C-14 -9 -14 -23 -8 -28 L8 -28 C14 -23 14 -9 0 -2 Z" fill="#fbcfe8" stroke="#f472b6" stroke-width="1.1" stroke-linejoin="round"/>';
+      s += '<path d="M-8 -28 L0 -19 L8 -28 Z" fill="#f9a8d4" stroke="#f472b6" stroke-width="0.9" stroke-linejoin="round"/>';
+      s += '<path d="M-4 -8 q4 2.6 8 0" stroke="#f472b6" stroke-width="0.9" fill="none" opacity="0.7"/>';
+      s += miniFlower(-9, -33, 5, '#f9a8d4', '#fde047', '#db2777');
+      s += miniFlower(9, -32, 4.8, '#fde047', '#fb923c', '#ca8a04');
+      s += miniFlower(0, -38, 5.4, '#fb7185', '#fde047', '#be123c');
+      s += miniFlower(-5, -43, 4.4, '#c4b5fd', '#fde047', '#7c3aed');
+      s += miniFlower(6, -42, 4.2, '#ffffff', '#fbbf24', '#d1d5db');
+      s += '<g transform="translate(0 -8)">'
+        + '<path d="M0 0 C-6 -5 -10 -1 -6 3 C-3 5.4 -0.8 1.6 0 0 Z" fill="#f472b6" stroke="#be123c" stroke-width="0.8"/>'
+        + '<path d="M0 0 C6 -5 10 -1 6 3 C3 5.4 0.8 1.6 0 0 Z" fill="#f472b6" stroke="#be123c" stroke-width="0.8"/>'
+        + '<circle cx="0" cy="1" r="2" fill="#fde047"/></g>';
+      s += '</g>';
+      return s;
+    }
+
+    /* ---- 戴在头上的小花（比摆件那圈更精致：花瓣 + 高光 + 小叶子） ---- */
+    /* 几朵头花沿头顶弧线排开（戴了帽子就别在帽檐上） */
+    function renderHeadFlowers(ids, hatOn) {
+      const n = ids.length;
+      if (!n) return '';
+      const span = Math.min(72, n * 19);
+      let s = '';
+      ids.forEach((id, i) => {
+        const f = headFlowerOf(id);
+        if (!f) return;
+        const deg = n === 1 ? 0 : (-span / 2 + (span * i) / (n - 1));
+        const a = deg * Math.PI / 180;
+        const x = 80 + Math.sin(a) * (hatOn ? 33 : 36);
+        const y = hatOn ? 46.5 : (54 - Math.cos(a) * 33.5);
+        const rot = Math.round(deg * 0.75);
+        s += '<g transform="translate(' + fnum(x) + ' ' + fnum(y) + ') rotate(' + rot + ')">' + renderHeadFlower(f, 0.95) + '</g>';
+      });
+      return s;
+    }
+
+    function renderHeadFlower(f, scale) {
+      const k = scale || 1;
+      let s = '<g transform="scale(' + fnum(k) + ')">';
+      /* 后面两片小叶子 */
+      s += '<path d="M-1 2 C-6 1 -8 -3 -6 -5.5 C-3 -6.5 -0.6 -3.4 -1 2 Z" fill="' + f.leaf + '" stroke="#16a34a" stroke-width="0.6"/>';
+      s += '<path d="M1 2 C6 1 8 -3 6 -5.5 C3 -6.5 0.6 -3.4 1 2 Z" fill="' + f.leaf + '" stroke="#16a34a" stroke-width="0.6"/>';
+      /* 5 片花瓣 */
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        const px = fnum(Math.cos(a) * 4.6), py = fnum(Math.sin(a) * 4.6);
+        s += '<ellipse cx="' + px + '" cy="' + py + '" rx="3.5" ry="3.9" fill="' + f.petal + '" stroke="' + f.edge
+          + '" stroke-width="0.7" transform="rotate(' + Math.round(a * 57.3 + 90) + ' ' + px + ' ' + py + ')"/>';
+      }
+      /* 花瓣高光 */
+      s += '<circle cx="-1.4" cy="-4.8" r="1" fill="#ffffff" opacity="0.65"/>';
+      /* 花心 */
+      s += '<circle cx="0" cy="0" r="2.6" fill="' + f.core + '" stroke="' + f.edge + '" stroke-width="0.6"/>';
+      s += '<circle cx="-0.8" cy="-0.8" r="0.8" fill="#ffffff" opacity="0.75"/>';
+      s += '</g>';
+      return s;
     }
 
     /* ---- 猫脚边的道具摆件（每个以底部中心为原点 0,0） ---- */
@@ -1347,6 +1543,33 @@
           + '<path d="M0 -21 C-3 -26 -0.6 -30.4 2 -29.6 C4.4 -27.6 3.4 -23.4 0 -21 Z" fill="#60a5fa" stroke="#2563eb" stroke-width="0.8" opacity="0.95"/>'
           + '<circle cx="0" cy="-19.4" r="2.2" fill="#fbbf24" stroke="#b45309" stroke-width="0.8"/>'
           + '</g>',
+      /* 鲜花花瓶（插满花） */
+      fl_vase: '<ellipse cx="0" cy="1" rx="8" ry="2.2" fill="#94a3b8" opacity="0.25"/>'
+          + '<g stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round">'
+          + '<path d="M0 -12 C-3 -18 -7 -21 -9 -25"/><path d="M0 -12 C1 -19 3 -23 3 -28"/><path d="M0 -12 C4 -17 8 -19 10 -23"/>'
+          + '</g>'
+          + '<path d="M-7 -21 q-3 -2 -4 -6 q4 0 5 4" fill="#4ade80" stroke="#16a34a" stroke-width="0.7"/>'
+          + '<path d="M9 -19 q3 -2 4 -6 q-4 -0.5 -5 4" fill="#4ade80" stroke="#16a34a" stroke-width="0.7"/>'
+          + miniFlower(-9, -26, 4.6, '#fb7185', '#fde047', '#e11d48')
+          + miniFlower(3, -29, 5, '#fbcfe8', '#fde047', '#f472b6')
+          + miniFlower(10, -24, 4.4, '#c4b5fd', '#fde047', '#7c3aed')
+          + '<path d="M-5.5 0 C-6.6 -8 -4.2 -12 0 -12 C4.2 -12 6.6 -8 5.5 0 Z" fill="#93c5fd" stroke="#2563eb" stroke-width="0.9" stroke-linejoin="round"/>'
+          + '<path d="M-2.4 -1.5 C-3 -6 -2 -9 -1 -11" stroke="#ffffff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.6"/>'
+          + '<ellipse cx="0" cy="-12" rx="3.4" ry="1.6" fill="#dbeafe" stroke="#2563eb" stroke-width="0.8"/>'
+          + '<path d="M-4.6 -4.5 q4.6 2.4 9.2 0" stroke="#60a5fa" stroke-width="1.1" fill="none"/>',
+      /* 小花盆 */
+      fl_pot: '<ellipse cx="0" cy="1" rx="8.5" ry="2.2" fill="#94a3b8" opacity="0.25"/>'
+          + '<path d="M-9 -7 L-7 0.5 L7 0.5 L9 -7 Z" fill="#e07a5f" stroke="#b45309" stroke-width="0.9" stroke-linejoin="round"/>'
+          + '<ellipse cx="0" cy="-7" rx="9" ry="2.8" fill="#8b5e3c" stroke="#b45309" stroke-width="0.8"/>'
+          + '<g stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round">'
+          + '<path d="M0 -8 C-1 -14 -3 -17 -5 -20"/><path d="M0 -8 C1 -14 3 -16 5 -19"/><path d="M0 -8 v-10"/>'
+          + '</g>'
+          + '<path d="M-5 -15 q-4 -1 -5 -5 q4.5 -0.5 5.5 3.6" fill="#4ade80" stroke="#16a34a" stroke-width="0.7"/>'
+          + '<path d="M5 -14 q4 -1.4 4.6 -5.4 q-4.4 -0.8 -5.4 3.4" fill="#4ade80" stroke="#16a34a" stroke-width="0.7"/>'
+          + miniFlower(-5, -21, 4.2, '#fde047', '#fb923c', '#ca8a04')
+          + miniFlower(5, -20, 4, '#f9a8d4', '#fde047', '#db2777')
+          + miniFlower(0, -19, 4.4, '#ffffff', '#fbbf24', '#d1d5db')
+          + '<path d="M-7.6 -3.4 q3.4 1.8 6.8 0" stroke="#f2d0b8" stroke-width="1" fill="none" opacity="0.7"/>',
       /* 猫爬架 */
       tower: '<ellipse cx="0" cy="1.5" rx="10.5" ry="2.5" fill="#94a3b8" opacity="0.25"/>'
           + '<rect x="-9" y="-3" width="18" height="4" rx="1.8" fill="#c9a227" stroke="#a16207" stroke-width="0.8"/>'
@@ -1358,15 +1581,29 @@
           + '<circle cx="-6" cy="-2.6" r="1.3" fill="#fff" opacity="0.5"/>'
     };
 
-    /* 把买过的道具按固定位置摆到猫脚边 */
+    /* 把买过的东西一个个摆到猫脚边：先占前排，买多了再往后排
+       （y 小的先画 —— 后排被前排挡住一点，看起来有前后层次） */
     function renderCatProps(cat) {
       const owned = (cat.items || []).map(i => i.itemId);
-      if (!owned.length) return '';
+      const ids = PROP_ORDER.filter(id => owned.indexOf(id) >= 0);
+      if (!ids.length) return '';
+      const tall = ids.filter(id => PROP_TALL.indexOf(id) >= 0);
+      const rest = ids.filter(id => PROP_TALL.indexOf(id) < 0);
+      const placed = [];
+      /* 高个子站后排，小物件摆前排；两排各自从中间往外排 */
+      tall.forEach((id, i) => {
+        const s = PROP_SLOTS_BACK[i] || PROP_SLOTS_FRONT[PROP_SLOTS_FRONT.length - 1];
+        if (s) placed.push([s[1], s[0], s[2], id]);
+      });
+      rest.forEach((id, i) => {
+        const s = PROP_SLOTS_FRONT[i] || PROP_SLOTS_BACK[PROP_SLOTS_BACK.length - 1];
+        if (s) placed.push([s[1], s[0], s[2], id]);
+      });
+      /* y 小的先画：后排自然被前排挡一点点，有前后层次 */
+      placed.sort((a, b) => a[0] - b[0]);
       let s = '';
-      for (const id in CAT_PROP_POS) {
-        if (owned.indexOf(id) < 0) continue;
-        const p = CAT_PROP_POS[id];
-        s += '<g transform="translate(' + p[0] + ' ' + p[1] + ')">' + (CAT_PROP_ART[id] || '') + '</g>';
+      for (const p of placed) {
+        s += '<g transform="translate(' + p[1] + ' ' + p[0] + ') scale(' + p[2] + ')">' + (CAT_PROP_ART[p[3]] || '') + '</g>';
       }
       return s;
     }
@@ -1437,7 +1674,7 @@
       const mood = cat.mood || 0;
       const happy = mood >= 70, sad = mood < 30;
       const u = uid || cat.childId || 'c';
-      const cH = 'ch-' + u, cB = 'cb-' + u, gB = 'gb-' + u, gH = 'gh-' + u, gE = 'ge-' + u, gT = 'gt-' + u, fG = 'fg-' + u;
+      const cH = 'ch-' + u, cB = 'cb-' + u, cD = 'cd-' + u, gB = 'gb-' + u, gH = 'gh-' + u, gE = 'ge-' + u, gT = 'gt-' + u, fG = 'fg-' + u;
       const wag = wagSeq ? ' wagging' : '';
       const furB = 'url(#' + gB + ')', furH = 'url(#' + gH + ')';
       const dark = '#4a3b32';
@@ -1460,6 +1697,7 @@
       s += '<radialGradient id="' + gT + '" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>';
       s += '<clipPath id="' + cH + '"><path d="' + HEAD_D + '"/></clipPath>';
       s += '<clipPath id="' + cB + '"><path d="' + BODY + '"/></clipPath>';
+      s += '<clipPath id="' + cD + '"><path d="' + DRESS_PATH + '"/></clipPath>';
       /* 水彩纸颗粒：噪声亮度转 alpha，深灰褐半透明点 */
       s += '<filter id="' + fG + '" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">'
         + '<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="11" result="t"/>'
@@ -1502,7 +1740,11 @@
         s += '<path d="M48 114 q9 -6 18 -2"/><path d="M94 108 q9 -4 18 2"/><path d="M50 132 q9 -5 18 -1"/><path d="M92 134 q8 -5 16 -1"/>';
         s += '</g>';
       }
-      if (wear.indexOf('sweater') >= 0) {
+      /* 身上穿的：花裙子优先（只穿最后挑中的一条），其次小毛衣 */
+      const dressId = wear.filter(id => DRESS_IDS.indexOf(id) >= 0).slice(-1)[0];
+      if (dressId) {
+        s += renderDress(dressOf(dressId), cD);
+      } else if (wear.indexOf('sweater') >= 0) {
         s += '<path d="M55 102 q25 -10 50 0 v42 q-25 9 -50 0 z" fill="#fb7185"/>';
         s += '<path d="M55 102 q25 -10 50 0" fill="none" stroke="#e11d48" stroke-width="4"/>';
         s += '<path d="M58 116 h44 M58 128 h44" stroke="#ffffff" stroke-width="2.4" opacity="0.65"/>';
@@ -1522,6 +1764,10 @@
       s += '<ellipse cx="67" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
       s += '<ellipse cx="93" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
       s += '<g stroke="' + shadeColor(b.belly, -55) + '" stroke-width="1.1" opacity="0.55" fill="none" stroke-linecap="round"><path d="M63.5 147.5 v3"/><path d="M67 147.5 v3.4"/><path d="M70.5 147.5 v3"/><path d="M89.5 147.5 v3"/><path d="M93 147.5 v3.4"/><path d="M96.5 147.5 v3"/></g>';
+      /* 抱在爪子里的花束 */
+      if (wear.indexOf('fl_bouquet') >= 0) s += renderBouquet();
+      /* 脖子上的鲜花花环 */
+      if (wear.indexOf('fw_wreath') >= 0) s += renderWreath();
       /* 身体外缘细毛（左右两侧 + 底部） */
       s += furRing(80, 124, 33, 27, 196, 344, 22, 5, shadeColor(b.body, -52), shadeColor(b.body, 40), 53);
       /* 脖口蓬松毛（盖住头颈接缝） */
@@ -1625,6 +1871,9 @@
         s += '<rect x="42" y="42" width="76" height="9.5" rx="4.75" fill="#60a5fa"/>';
         s += '<circle cx="80" cy="9" r="5.5" fill="#fde047"/>';
       }
+      /* 头花：戴几朵就开几朵，沿头顶排开（戴帽子时别在帽檐上） */
+      const headFlowers = wear.filter(id => HEAD_FLOWER_IDS.indexOf(id) >= 0);
+      if (headFlowers.length) s += renderHeadFlowers(headFlowers, wear.indexOf('hat') >= 0);
       /* 头顶大蝴蝶结（画在最后，最上层） */
       if (wear.indexOf('bow') >= 0) {
         s += '<g transform="translate(102 28) rotate(14)">';
@@ -2235,6 +2484,7 @@
         get activeCat() { return this.cats[this.activeChildId] || null; },
         get catBreeds() { return CAT_BREEDS; },
         get catItems() { return CAT_ITEMS; },
+        get catItemGroups() { return CAT_ITEM_GROUPS; },
 
         breedOf(cat) { return CAT_BREEDS.find(b => b.id === cat.breed) || CAT_BREEDS[4]; },
         catStage(cat) { return catStageOf(cat ? (cat.exp || 0) : 0); },
@@ -2396,6 +2646,13 @@
             }
             if (item.kind === 'wear') {
               if (!cat.wearing) cat.wearing = [];
+              /* 身上只能穿一件：买了新裙子就换下旧的 */
+              if (item.slot === 'body') {
+                cat.wearing = cat.wearing.filter(id => {
+                  const it = CAT_ITEMS.find(x => x.id === id);
+                  return !(it && it.slot === 'body');
+                });
+              }
               if (!cat.wearing.includes(item.id)) cat.wearing.push(item.id);
             }
             this.exchanges.push({
@@ -2411,10 +2668,11 @@
               item.kind === 'use' ? `${item.icon} ${item.name}：饱食 +${item.fullness || 0}，心情 +${item.mood || 0}`
                                   : `买了 ${item.icon} ${item.name}`);
             this.saveData();
-            this.showToast(`${item.icon} ${item.name} 已使用，-${item.cost}⭐`);
+            this.showToast(`${item.icon} ${item.name} ${item.kind === 'use' ? '已用上' : (item.kind === 'deco' ? '已摆好' : '已戴上')}，-${item.cost}⭐`);
             if (navigator.vibrate) navigator.vibrate(50);
           };
-          this.appConfirm('花 ' + item.cost + ' ⭐', `用 ${item.cost} 积分给「${cat.name}」${item.kind === 'use' ? '使用' : '购买'}「${item.name}」？\n剩余积分也会相应减少。`, apply);
+          const verb = item.kind === 'use' ? '使用' : (item.kind === 'deco' ? '摆上' : '购买');
+          this.appConfirm('花 ' + item.cost + ' ⭐', `用 ${item.cost} 积分给「${cat.name}」${verb}「${item.name}」？\n剩余积分也会相应减少。`, apply);
         },
 
         // 点一下猫：摇尾巴 + 歪头 + 冒爱心（随时可点，不限次数）
@@ -2456,10 +2714,36 @@
           const cat = this.activeCat;
           if (!cat) return;
           if (!cat.wearing) cat.wearing = [];
+          const item = CAT_ITEMS.find(i => i.id === itemId);
           const i = cat.wearing.indexOf(itemId);
-          if (i >= 0) cat.wearing.splice(i, 1); else cat.wearing.push(itemId);
+          if (i >= 0) {
+            cat.wearing.splice(i, 1);
+          } else {
+            /* 身上一次只能穿一件，换上新裙子就脱下旧的 */
+            if (item && item.slot === 'body') {
+              cat.wearing = cat.wearing.filter(id => {
+                const it = CAT_ITEMS.find(x => x.id === id);
+                return !(it && it.slot === 'body');
+              });
+            }
+            cat.wearing.push(itemId);
+          }
           this.saveData();
         },
+
+        /* 衣柜：按「头上 / 身上 / 其它」分开摆 */
+        catWearOwned(part) {
+          const cat = this.activeCat;
+          if (!cat) return [];
+          return (cat.items || []).filter(o => {
+            const it = CAT_ITEMS.find(x => x.id === o.itemId);
+            if (!it || it.kind !== 'wear') return false;
+            if (part === 'head') return it.slot === 'head';
+            if (part === 'body') return it.slot === 'body';
+            return it.slot !== 'head' && it.slot !== 'body';
+          });
+        },
+        catWearCount(part) { return this.catWearOwned(part).length; },
 
         ownsItem(itemId) { return (this.activeCat?.items || []).some(i => i.itemId === itemId); },
         isWearing(itemId) { return (this.activeCat?.wearing || []).includes(itemId); },
