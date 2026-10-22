@@ -810,7 +810,7 @@
                     <button @click="playToy(owned.itemId)"
                             class="px-3 py-2 rounded-xl text-sm font-medium active:scale-95"
                             :class="canPlay(owned.itemId) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-50 text-gray-400 border border-gray-100'">
-                      <span x-text="catItems.find(x => x.id === owned.itemId).icon"></span>
+                      <span x-html="catItems.find(x => x.id === owned.itemId).iconSvg || catItems.find(x => x.id === owned.itemId).icon"></span>
                       <span x-text="catItems.find(x => x.id === owned.itemId).name"></span>
                       <span class="text-[10px]" x-text="canPlay(owned.itemId) ? '可玩' : '已玩'"></span>
                     </button>
@@ -831,7 +831,7 @@
                         <button @click="toggleWear(owned.itemId)"
                                 class="px-3 py-2 rounded-xl text-sm font-medium active:scale-95"
                                 :class="isWearing(owned.itemId) ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' : 'bg-gray-50 text-gray-500 border border-gray-100'">
-                          <span x-text="catItems.find(x => x.id === owned.itemId).icon"></span>
+                          <span x-html="catItems.find(x => x.id === owned.itemId).iconSvg || catItems.find(x => x.id === owned.itemId).icon"></span>
                           <span x-text="catItems.find(x => x.id === owned.itemId).name"></span>
                           <span class="text-[10px]" x-text="isWearing(owned.itemId) ? '穿着' : '收着'"></span>
                         </button>
@@ -881,7 +881,7 @@
                   <template x-for="item in catItems.filter(i => i.group === g.key && i.kind !== 'use')" :key="item.id">
                     <div class="bg-white rounded-2xl p-3 border flex items-center gap-3"
                          :class="ownsItem(item.id) ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-100'">
-                      <span class="text-2xl" x-text="item.icon"></span>
+                      <span class="text-2xl" x-html="item.iconSvg || item.icon"></span>
                       <div class="flex-1 min-w-0">
                         <div class="text-sm font-bold text-gray-800 flex items-center gap-1">
                           <span x-text="item.name"></span>
@@ -1301,6 +1301,26 @@
     const DRESS_IDS = CAT_DRESSES.map(d => d.id);
     function dressOf(id) { return CAT_DRESSES.find(d => d.id === id); }
 
+    /* 裙子的小图标：用裙子自己的颜色画（emoji 裙子永远是蓝色，和裙子颜色对不上） */
+    const DRESS_ICON_PATH = 'M9.4 2.5 h5.2 l-0.9 4.6 C16.5 8.6 19.5 15 21.2 21 H2.8 C4.5 15 7.5 8.6 10.3 7.1 Z';
+    function dressIcon(d) {
+      let s = '<svg viewBox="0 0 24 24" width="32" height="32" style="display:block">';
+      s += '<path d="' + DRESS_ICON_PATH + '" fill="' + d.cloth + '"/>';
+      if (d.rainbow) {
+        const cols = ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#c4b5fd'];
+        s += '<clipPath id="di-' + d.id + '"><path d="' + DRESS_ICON_PATH + '"/></clipPath>';
+        s += '<g clip-path="url(#di-' + d.id + ')">';
+        for (let i = 0; i < 6; i++) s += '<rect x="' + (2 + i * 3.6) + '" y="0" width="3.8" height="24" fill="' + cols[i] + '"/>';
+        s += '</g>';
+      }
+      s += '<path d="' + DRESS_ICON_PATH + '" fill="none" stroke="' + d.dark + '" stroke-width="1.1" stroke-linejoin="round"/>';
+      s += '<path d="M8.9 9.6 C11 10.7 13 10.7 15.1 9.6" stroke="' + d.dark + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>';
+      s += '<circle cx="8.6" cy="15.5" r="1" fill="' + d.flower + '"/><circle cx="13.2" cy="18" r="1" fill="' + d.flower + '"/>';
+      s += '</svg>';
+      return s;
+    }
+    CAT_DRESSES.forEach(d => { d.iconSvg = dressIcon(d); });
+
     /* 商店分区 */
     const CAT_ITEM_GROUPS = [
       { key: 'head',   title: '🌸 头花',     hint: '可以一起戴好几朵，戴满整个头顶' },
@@ -1327,7 +1347,7 @@
         desc: '别在小脑袋上，心情 +3', mood: 3, decayCut: 1
       })))
       .concat(CAT_DRESSES.map(d => ({
-        id: d.id, name: d.name, icon: d.icon, cost: 1, kind: 'wear', slot: 'body', group: 'dress',
+        id: d.id, name: d.name, icon: d.icon, iconSvg: d.iconSvg, cost: 1, kind: 'wear', slot: 'body', group: 'dress',
         desc: '换上新裙子，心情 +6', mood: 6, decayCut: 2
       })))
       .concat([
@@ -1840,13 +1860,31 @@
       /* 纸纹颗粒（限制在身体内，不污染背景） */
       s += '<g clip-path="url(#' + cB + ')"><rect x="40" y="84" width="80" height="70" filter="url(#' + fG + ')" opacity="0.16" style="mix-blend-mode:multiply;pointer-events:none"/></g>';
       if (standing) {
+        const dObj = dressOf(dressId);
         /* 拖地长裙：盖住腿脚，裙摆一直堆到地上 */
-        s += renderDressStand(dressOf(dressId), cD);
+        s += renderDressStand(dObj, cD);
+        /* 连衣裙的上身：胸口也用裙子布料包住（抹胸到肩），不再是裸毛 */
+        s += '<g clip-path="url(#' + cB + ')">';
+        s += '<rect x="48" y="60" width="64" height="47" fill="' + dObj.cloth + '"/>';
+        if (dObj.rainbow) {
+          const cols = ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#c4b5fd'];
+          for (let i = 0; i < 6; i++) {
+            s += '<rect x="' + (46 + i * 11) + '" y="60" width="12" height="47" fill="' + cols[i] + '" opacity="0.9"/>';
+          }
+        }
+        /* 裙身褶皱 + 纸纹 */
+        s += '<path d="M62 82 C60 92 59 100 59 107 M98 82 C100 92 101 100 101 107" stroke="' + dObj.dark + '" stroke-width="1" fill="none" opacity="0.35"/>';
+        s += '<rect x="48" y="60" width="64" height="47" filter="url(#' + fG + ')" opacity="0.16" style="mix-blend-mode:multiply;pointer-events:none"/>';
+        s += '</g>';
+        /* 领口弧线 + 上身轮廓收边 */
+        s += '<path d="M68 77 Q80 84 92 77" fill="none" stroke="' + dObj.dark + '" stroke-width="2.4" stroke-linecap="round"/>';
+        s += '<path d="' + BODY + '" fill="none" stroke="' + dObj.dark + '" stroke-width="1.2" opacity="0.5"/>';
         /* 裙摆下顶出来的两只小脚尖 */
         s += '<ellipse cx="72" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
         s += '<ellipse cx="88" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
         /* 前爪像人的手一样垂在裙子两侧 */
-        const armL = 'M64 82 C55 91 48 104 48 115', armR = 'M96 82 C105 91 112 104 112 115';
+        /* 手臂从腰侧长出来（不从肩膀横穿胸口，会盖住裙子抹胸） */
+        const armL = 'M61 92 C53 97 47 106 47 116', armR = 'M99 92 C107 97 113 106 113 116';
         s += '<path d="' + armL + '" fill="none" stroke="' + shadeColor(b.body, -45) + '" stroke-width="15" stroke-linecap="round"/>';
         s += '<path d="' + armR + '" fill="none" stroke="' + shadeColor(b.body, -45) + '" stroke-width="15" stroke-linecap="round"/>';
         s += '<path d="' + armL + '" fill="none" stroke="' + furB + '" stroke-width="12" stroke-linecap="round"/>';
