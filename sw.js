@@ -1,5 +1,5 @@
 // 宝贝打卡 Service Worker
-const CACHE_NAME = 'kids-habits-v19';
+const CACHE_NAME = 'kids-habits-v20';
 const ASSETS = [
   './',
   './index.html',

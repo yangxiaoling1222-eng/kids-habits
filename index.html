@@ -823,7 +823,7 @@
             <template x-if="activeCat && activeCat.items.filter(i => catItems.find(x => x.id === i.itemId && x.kind === 'wear')).length">
               <div class="mb-4">
                 <h3 class="font-bold text-gray-700 mb-2">👗 衣柜</h3>
-                <template x-for="part in [{k:'head',t:'🌸 头花（可以一起戴）'},{k:'body',t:'👗 身上（一次穿一件）'},{k:'other',t:'🎀 其它小配件'}]" :key="part.k">
+                <template x-for="part in [{k:'head',t:'🌸 头花（可以一起戴）'},{k:'body',t:'👗 身上（一次穿一件）'},{k:'paw',t:'🖐 手上脚上（手链可以叠戴）'},{k:'other',t:'🎀 其它小配件'}]" :key="part.k">
                   <div class="mb-2" x-show="catWearCount(part.k)">
                     <div class="text-[11px] text-gray-400 mb-1.5" x-text="part.t"></div>
                     <div class="flex flex-wrap gap-2">
@@ -870,7 +870,7 @@
               <button @click="catView = 'main'" class="text-gray-500 text-sm font-bold px-2">‹ 返回</button>
               <h2 class="font-bold text-gray-800">🛒 猫咪商店</h2>
             </div>
-            <p class="text-xs text-gray-400 mb-3">全都 1 积分。买来的头花可以一起戴，花裙子一次穿一条，花瓶花盆会摆在猫脚边。</p>
+            <p class="text-xs text-gray-400 mb-3">全都 1 积分。头花和手链可以一起戴，裙子 / 项链 / 墨镜 / 高跟鞋 / 手里拿的一样一件，花瓶花盆会摆在猫脚边。</p>
             <template x-for="g in catItemGroups" :key="g.key">
               <div class="mb-4">
                 <div class="flex items-baseline gap-2 mb-2 px-0.5">
@@ -1321,10 +1321,135 @@
     }
     CAT_DRESSES.forEach(d => { d.iconSvg = dressIcon(d); });
 
+    /* ===== 首饰 / 高跟鞋 / 帅气道具 ===== */
+    const STAR_PATH = 'M0 -5.5 L1.5 -1.5 L5.5 0 L1.5 1.5 L0 5.5 L-1.5 1.5 L-5.5 0 L-1.5 -1.5 Z';
+    function svgIcon(inner) {
+      return '<svg viewBox="0 0 24 24" width="30" height="30" style="display:block">' + inner + '</svg>';
+    }
+
+    /* 墨镜 */
+    const CAT_GLASSES = [
+      { id: 'gl_shades', name: '小墨镜', icon: '🕶', frame: '#111827', frameHi: '#9ca3af', lens: '#1f2937' }
+    ];
+    const GLASSES_IDS = CAT_GLASSES.map(g => g.id);
+    function glassesOf(id) { return CAT_GLASSES.find(g => g.id === id); }
+
+    /* 项链：宝石 / 钻石 / 翡翠 */
+    const CAT_NECKLACES = [
+      { id: 'nk_gem',     name: '宝石项链', icon: '📿', chain: '#fbbf24', stone: '#3b82f6', stoneHi: '#93c5fd', stoneDk: '#1d4ed8' },
+      { id: 'nk_diamond', name: '钻石项链', icon: '💎', chain: '#e2e8f0', stone: '#e0f2fe', stoneHi: '#ffffff', stoneDk: '#7dd3fc', diamond: true },
+      { id: 'nk_jade',    name: '翡翠项链', icon: '🧿', chain: '#fbbf24', stone: '#22c55e', stoneHi: '#86efac', stoneDk: '#15803d', jade: true }
+    ];
+    const NECKLACE_IDS = CAT_NECKLACES.map(n => n.id);
+    function necklaceOf(id) { return CAT_NECKLACES.find(n => n.id === id); }
+
+    /* 手链：珍珠 / 宝石 / 翡翠 */
+    const CAT_BRACELETS = [
+      { id: 'br_pearl', name: '珍珠手链', icon: '⚪', chain: '#fbbf24', bead: '#fffaf0', beadHi: '#ffffff', beadDk: '#d6c7b6' },
+      { id: 'br_gem',   name: '宝石手链', icon: '💍', chain: '#fbbf24', bead: '#f472b6', beadHi: '#fce7f3', beadDk: '#be185d' },
+      { id: 'br_jade',  name: '翡翠手链', icon: '🟢', chain: '#fbbf24', bead: '#34d399', beadHi: '#a7f3d0', beadDk: '#047857' }
+    ];
+    const BRACELET_IDS = CAT_BRACELETS.map(b => b.id);
+    function braceletOf(id) { return CAT_BRACELETS.find(b => b.id === id); }
+
+    /* 高跟鞋侧视轮廓：鞋跟在左边（x≈3~7）、尖头朝右、鞋底 y=20.9 */
+    const HEEL_SHAPE = 'M3.2 15.2 C2.4 11.2 4.2 8 7.4 7.4 C9.8 7 11 8 12.8 9.8 '
+      + 'C14.8 11.6 17 13.6 19.4 15.4 C21.4 16.6 22.2 18.4 21 19.8 C20.4 20.5 19 20.9 17.4 20.9 L7 20.9 Z';
+    const HEEL_STEM = 'M3 20.9 L3.5 15 L7.4 15 L7 20.9 Z';
+    const CAT_HEELS = [
+      { id: 'hl_red',    name: '红色高跟鞋', icon: '👠', cloth: '#ef4444', dark: '#991b1b', hi: '#fca5a5', buckle: '#fbbf24' },
+      { id: 'hl_blue',   name: '蓝色高跟鞋', icon: '👠', cloth: '#3b82f6', dark: '#1d4ed8', hi: '#93c5fd', buckle: '#fbbf24' },
+      { id: 'hl_purple', name: '紫色高跟鞋', icon: '👠', cloth: '#a855f7', dark: '#6b21a8', hi: '#d8b4fe', buckle: '#fbbf24' }
+    ];
+    const HEEL_IDS = CAT_HEELS.map(h => h.id);
+    function heelOf(id) { return CAT_HEELS.find(h => h.id === id); }
+
+    /* 握在小爪子里的帅气玩具 */
+    const CAT_WEAPONS = [
+      { id: 'wp_gun',      name: '玩具手枪',   icon: '🔫', body: '#38bdf8', bodyDk: '#0369a1', grip: '#fb923c', accent: '#fde047' },
+      { id: 'wp_nunchaku', name: '玩具双截棍', icon: '🥋', stick: '#a16207', stickHi: '#ca8a04', ring: '#cbd5e1' },
+      { id: 'wp_blade',    name: '玩具大刀',   icon: '🗡', blade: '#e2e8f0', bladeHi: '#ffffff', edge: '#94a3b8', grip: '#dc2626', guard: '#fbbf24' }
+    ];
+    const WEAPON_IDS = CAT_WEAPONS.map(w => w.id);
+    function weaponOf(id) { return CAT_WEAPONS.find(w => w.id === id); }
+
+    /* ---- 商店里的小图标也按实物颜色画（别再出现「红鞋配蓝图标」） ---- */
+    CAT_GLASSES.forEach(g => {
+      g.iconSvg = svgIcon(
+        '<path d="M2.2 9.4 L5.2 11" stroke="' + g.frame + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+        + '<path d="M21.8 9.4 L18.8 11" stroke="' + g.frame + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+        + '<rect x="1.6" y="9.8" width="9.2" height="7.2" rx="3.2" fill="' + g.lens + '" stroke="' + g.frame + '" stroke-width="1.5"/>'
+        + '<rect x="13.2" y="9.8" width="9.2" height="7.2" rx="3.2" fill="' + g.lens + '" stroke="' + g.frame + '" stroke-width="1.5"/>'
+        + '<path d="M10.8 12.4 q1.2 -1.6 2.4 0" fill="none" stroke="' + g.frame + '" stroke-width="1.8" stroke-linecap="round"/>'
+        + '<path d="M3.4 15.2 L6.8 11.6 M5.2 16 L8.4 12.6" stroke="' + g.frameHi + '" stroke-width="1.1" opacity="0.55" stroke-linecap="round"/>'
+        + '<path d="M15 15.2 L18.4 11.6 M16.8 16 L20 12.6" stroke="' + g.frameHi + '" stroke-width="1.1" opacity="0.55" stroke-linecap="round"/>'
+      );
+    });
+    CAT_NECKLACES.forEach(n => {
+      const pendant = n.diamond
+        ? '<path d="M6.6 15 L9 12.4 L15 12.4 L17.4 15 L12 21 Z" fill="' + n.stone + '" stroke="' + n.stoneDk + '" stroke-width="1" stroke-linejoin="round"/>'
+          + '<path d="M9 12.4 L10.6 16 L12 12.4 L13.4 16 L15 12.4" fill="none" stroke="' + n.stoneHi + '" stroke-width="0.9"/>'
+          + '<path d="M12 16 L12 21 M9.6 15.2 L14.4 15.2" stroke="' + n.stoneDk + '" stroke-width="0.8" opacity="0.7"/>'
+        : (n.jade
+          ? '<path d="M12 12.6 v2.4" stroke="' + n.chain + '" stroke-width="1.6"/>'
+            + '<circle cx="12" cy="17.4" r="5" fill="' + n.stone + '" stroke="' + n.stoneDk + '" stroke-width="1"/>'
+            + '<circle cx="12" cy="17.4" r="1.9" fill="#ecfdf5" opacity="0.9"/>'
+            + '<path d="M8.4 15 q1.4 -1.6 3.2 -1.8" stroke="' + n.stoneHi + '" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.9"/>'
+          : '<path d="M12 13.4 L7.4 16.4 L9 20.6 L15 20.6 L16.6 16.4 Z" fill="' + n.stone + '" stroke="' + n.stoneDk + '" stroke-width="1" stroke-linejoin="round"/>'
+            + '<path d="M9 16.6 L15 16.6 M12 13.4 L12 20.6" stroke="' + n.stoneHi + '" stroke-width="0.9" opacity="0.8"/>'
+            + '<circle cx="10.2" cy="16" r="1" fill="#ffffff" opacity="0.9"/>');
+      n.iconSvg = svgIcon(
+        '<path d="M4 4.6 C4 12.6 7.4 18.4 12 18.4 C16.6 18.4 20 12.6 20 4.6" fill="none" stroke="' + n.chain
+          + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.6 3.2"/>'
+        + '<circle cx="12" cy="12.4" r="1.4" fill="none" stroke="' + n.chain + '" stroke-width="1.4"/>' + pendant
+      );
+    });
+    CAT_BRACELETS.forEach(b => {
+      b.iconSvg = svgIcon(
+        '<ellipse cx="12" cy="14" rx="8.4" ry="5.6" fill="none" stroke="' + b.chain + '" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="0.6 3.2"/>'
+        + '<circle cx="12" cy="14" r="3.4" fill="' + b.bead + '" stroke="' + b.beadDk + '" stroke-width="0.9"/>'
+        + '<circle cx="10.8" cy="12.9" r="1.1" fill="' + b.beadHi + '"/>'
+      );
+    });
+    CAT_HEELS.forEach(h => {
+      h.iconSvg = svgIcon(
+        '<path d="' + HEEL_STEM + '" fill="' + h.dark + '"/>'
+        + '<path d="' + HEEL_SHAPE + '" fill="' + h.cloth + '" stroke="' + h.dark + '" stroke-width="0.9" stroke-linejoin="round"/>'
+        + '<path d="M8.6 9.6 C10.8 11.6 13.8 13.6 17.4 15.2" stroke="' + h.hi + '" stroke-width="1.2" fill="none" opacity="0.7" stroke-linecap="round"/>'
+        + '<ellipse cx="7.6" cy="8.8" rx="1.9" ry="1.4" fill="' + h.buckle + '" stroke="' + shadeColor(h.buckle, -70) + '" stroke-width="0.6"/>'
+      );
+    });
+    CAT_WEAPONS.forEach(w => {
+      let art = '';
+      if (w.id === 'wp_gun') {
+        art = '<rect x="3" y="7.6" width="13" height="5.4" rx="2.2" fill="' + w.body + '" stroke="' + w.bodyDk + '" stroke-width="0.9"/>'
+          + '<rect x="15" y="9" width="5" height="3" rx="1.5" fill="' + w.bodyDk + '"/>'
+          + '<path d="M5.4 12.4 L8.4 12.4 L9.6 18.6 C9.6 20 8 20.8 6.6 20.6 C5.2 20.4 4.4 19.6 4.6 18.4 Z" fill="' + w.grip + '" stroke="' + w.bodyDk + '" stroke-width="0.9"/>'
+          + '<circle cx="18.4" cy="10.4" r="1.3" fill="' + w.accent + '"/>'
+          + '<path transform="translate(7.6 10) scale(0.42)" d="' + STAR_PATH + '" fill="' + w.accent + '"/>';
+      } else if (w.id === 'wp_nunchaku') {
+        art = '<path d="M3.8 17 L10.4 9.6" stroke="' + w.stick + '" stroke-width="3.6" stroke-linecap="round"/>'
+          + '<path d="M13.6 17 L20.2 9.6" stroke="' + w.stick + '" stroke-width="3.6" stroke-linecap="round"/>'
+          + '<path d="M4.6 15.8 L6 17.2 M14.4 15.8 L15.8 17.2" stroke="' + w.stickHi + '" stroke-width="1.2" stroke-linecap="round"/>'
+          + '<path d="M10.6 9.2 C11.6 7.8 12.6 7.8 13.4 9.2" fill="none" stroke="' + w.ring + '" stroke-width="1.6"/>';
+      } else {
+        art = '<g transform="rotate(-28 12 12)">'
+          + '<rect x="2.4" y="11.3" width="7.6" height="2.6" rx="1.3" fill="' + w.grip + '" stroke="#7f1d1d" stroke-width="0.7"/>'
+          + '<path d="M1.6 10.6 L3.4 10.6" stroke="' + w.guard + '" stroke-width="2.4" stroke-linecap="round"/>'
+          + '<path d="M9.6 10.4 L21 10.4 L21.6 12.4 L9.6 13.8 Z" fill="' + w.blade + '" stroke="' + w.edge + '" stroke-width="0.9" stroke-linejoin="round"/>'
+          + '<path d="M10.4 11.4 L20.6 11.4" stroke="' + w.bladeHi + '" stroke-width="0.9" opacity="0.95"/>'
+          + '</g>';
+      }
+      w.iconSvg = svgIcon(art);
+    });
+
     /* 商店分区 */
     const CAT_ITEM_GROUPS = [
       { key: 'head',   title: '🌸 头花',     hint: '可以一起戴好几朵，戴满整个头顶' },
       { key: 'dress',  title: '👗 花裙子',   hint: '一次只能穿一条，买来的都收在衣柜' },
+      { key: 'jewel',  title: '💎 首饰',     hint: '墨镜、项链、手链，一起戴都行' },
+      { key: 'shoe',   title: '👠 高跟鞋',   hint: '一次只能穿一双' },
+      { key: 'weapon', title: '🎬 帅气道具', hint: '握在小爪子里，一次拿一样' },
       { key: 'flower', title: '💐 鲜花',     hint: '花环、花束、花瓶、花盆' },
       { key: 'toy',    title: '🧸 玩具',     hint: '每天陪玩一次，心情涨得快' },
       { key: 'basic',  title: '🍽 吃喝打扮', hint: '猫粮、罐头、洗澡和其它装扮' }
@@ -1335,7 +1460,7 @@
       { id: 'food', name: '猫粮', icon: '🍚', cost: 1, kind: 'use', group: 'basic', desc: '摆上饭碗，饱食 +30', fullness: 30, mood: 0 },
       { id: 'can', name: '罐头', icon: '🥫', cost: 1, kind: 'use', group: 'basic', desc: '开一罐，饱食 +50，心情 +5', fullness: 50, mood: 5 },
       { id: 'bath', name: '洗个澡', icon: '🛁', cost: 1, kind: 'use', group: 'basic', desc: '泡泡浴小黄鸭，心情 +15', fullness: 0, mood: 15 },
-      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 1, kind: 'wear', slot: 'neck', group: 'basic', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
+      { id: 'bow', name: '蝴蝶结', icon: '🎀', cost: 1, kind: 'wear', slot: 'head-deco', group: 'basic', desc: '戴上更开心，心情掉得慢', mood: 35, decayCut: 3 },
       { id: 'hat', name: '小帽子', icon: '🧢', cost: 1, kind: 'wear', slot: 'head-cover', group: 'basic', desc: '戴上很神气', mood: 40, decayCut: 3 },
       { id: 'sweater', name: '小毛衣', icon: '🧥', cost: 1, kind: 'wear', slot: 'body', group: 'dress', desc: '暖和又好看', mood: 40, decayCut: 3 },
       { id: 'ball', name: '毛线球', icon: '🧶', cost: 1, kind: 'toy', group: 'toy', desc: '每天陪玩 1 次，心情 +6', play: 6 },
@@ -1350,12 +1475,34 @@
         id: d.id, name: d.name, icon: d.icon, iconSvg: d.iconSvg, cost: 1, kind: 'wear', slot: 'body', group: 'dress',
         desc: '换上新裙子，心情 +6', mood: 6, decayCut: 2
       })))
+      .concat(CAT_GLASSES.map(g => ({
+        id: g.id, name: g.name, icon: g.icon, iconSvg: g.iconSvg, cost: 1, kind: 'wear', slot: 'face', group: 'jewel',
+        desc: '架在小鼻子上，酷酷的', mood: 6, decayCut: 2
+      })))
+      .concat(CAT_NECKLACES.map(n => ({
+        id: n.id, name: n.name, icon: n.icon, iconSvg: n.iconSvg, cost: 1, kind: 'wear', slot: 'neck', group: 'jewel',
+        desc: '戴在脖子上，亮闪闪', mood: 8, decayCut: 2
+      })))
+      .concat(CAT_BRACELETS.map(b => ({
+        id: b.id, name: b.name, icon: b.icon, iconSvg: b.iconSvg, cost: 1, kind: 'wear', slot: 'wrist', group: 'jewel',
+        desc: '戴在小手腕上，一晃一晃', mood: 5, decayCut: 1
+      })))
+      .concat(CAT_HEELS.map(h => ({
+        id: h.id, name: h.name, icon: h.icon, iconSvg: h.iconSvg, cost: 1, kind: 'wear', slot: 'feet', group: 'shoe',
+        desc: '穿上它，走起路来哒哒响', mood: 8, decayCut: 2
+      })))
+      .concat(CAT_WEAPONS.map(w => ({
+        id: w.id, name: w.name, icon: w.icon, iconSvg: w.iconSvg, cost: 1, kind: 'wear', slot: 'paw', group: 'weapon',
+        desc: '握在小爪子里，超帅', mood: 6, decayCut: 1
+      })))
       .concat([
         { id: 'fw_wreath',  name: '鲜花花环', icon: '🌿', cost: 1, kind: 'wear', slot: 'neck', group: 'flower', desc: '戴在脖子上，心情 +8', mood: 8, decayCut: 2 },
         { id: 'fl_bouquet', name: '鲜花花束', icon: '💐', cost: 1, kind: 'wear', slot: 'paw',  group: 'flower', desc: '抱在小爪子里，心情 +10', mood: 10, decayCut: 2 },
         { id: 'fl_vase',    name: '鲜花花瓶', icon: '🏺', cost: 1, kind: 'deco', group: 'flower', desc: '插满鲜花，摆在猫脚边', mood: 6, decayCut: 1 },
         { id: 'fl_pot',     name: '小花盆',   icon: '🪴', cost: 1, kind: 'deco', group: 'flower', desc: '养一盆小花，摆在猫脚边', mood: 6, decayCut: 1 }
       ]);
+    /* 这几个位置一次只戴一件（头花和手链可以叠戴，所以不在里面） */
+    const CAT_EXCLUSIVE_SLOTS = ['body', 'neck', 'face', 'paw', 'feet'];
 
     /* 买过的东西摆在猫脚边（买了什么，猫跟前就有什么）。
        前排 6 个位置最先占用，买多了再往后排摆（后排稍小、更靠后）。
@@ -1477,20 +1624,85 @@
       return s;
     }
 
-    /* ---- 戴在脖子上的鲜花花环 ---- */
-    function renderWreath(dy) {
-      let s = '<g transform="translate(0 ' + (dy || 0) + ')">';
-      s += '<ellipse cx="80" cy="102" rx="22" ry="7.5" fill="none" stroke="#15803d" stroke-width="2.6"/>';
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2;
-        const x = fnum(80 + Math.cos(a) * 22), y = fnum(102 + Math.sin(a) * 7.5);
-        s += '<ellipse cx="' + x + '" cy="' + y + '" rx="3.4" ry="2.3" fill="' + (i % 2 ? '#4ade80' : '#22c55e')
-          + '" stroke="#15803d" stroke-width="0.5" transform="rotate(' + Math.round(a * 57.3 + 90) + ' ' + x + ' ' + y + ')"/>';
+    /* ---- 戴在脖子上的那一圈（项链 / 花环都套在这里） ----
+       真实戴法：这是一整圈，但上半圈要绕到脖子后面去 —— 坐姿时它正好伸进脑袋里，
+       被后画的脑袋压住，所以看上去只露出胸前那一段（另一半藏起来了）。 */
+    function neckRing(standing) {
+      return standing ? { cx: 80, cy: 82, rx: 16.5, ry: 14 } : { cx: 80, cy: 84, rx: 18, ry: 19 };
+    }
+
+    /* ---- 项链 ---- */
+    function renderNecklace(d, standing) {
+      const r = neckRing(standing);
+      const py = r.cy + r.ry;
+      let s = '';
+      /* 链子：先一层暗线打底，再串一圈小珠子 */
+      s += '<ellipse cx="80" cy="' + r.cy + '" rx="' + r.rx + '" ry="' + r.ry + '" fill="none" stroke="'
+        + shadeColor(d.chain, -80) + '" stroke-width="3.4" opacity="0.4"/>';
+      s += '<ellipse cx="80" cy="' + r.cy + '" rx="' + r.rx + '" ry="' + r.ry + '" fill="none" stroke="' + d.chain
+        + '" stroke-width="2.9" stroke-linecap="round" stroke-dasharray="0.6 3.4"/>';
+      /* 挂坠的小环 + 坠子（垂在胸前） */
+      s += '<circle cx="80" cy="' + fnum(py + 1.2) + '" r="1.9" fill="none" stroke="'
+        + shadeColor(d.chain, -40) + '" stroke-width="1.4"/>';
+      s += '<g transform="translate(80 ' + fnum(py + 3) + ')">';
+      if (d.diamond) {
+        s += '<path d="M-6.2 1.6 L-3.2 -1.6 L3.2 -1.6 L6.2 1.6 L0 12.4 Z" fill="' + d.stone + '" stroke="' + d.stoneDk
+          + '" stroke-width="1" stroke-linejoin="round"/>';
+        s += '<path d="M-3.2 -1.6 L-1.7 2.4 L0 -1.6 L1.7 2.4 L3.2 -1.6" fill="none" stroke="' + d.stoneHi + '" stroke-width="0.9"/>';
+        s += '<path d="M0 2.4 L0 12.4 M-2.6 2.4 L2.6 2.4 M-4.4 6.6 L4.4 6.6" stroke="' + d.stoneDk + '" stroke-width="0.7" opacity="0.6"/>';
+        s += '<circle cx="-2.2" cy="4.4" r="1.2" fill="#ffffff" opacity="0.9"/>';
+        s += '<path transform="translate(6.8 -3.6) scale(0.44)" d="' + STAR_PATH + '" fill="' + d.stoneHi + '"/>';
+      } else if (d.jade) {
+        s += '<path d="M0 -1 v3" stroke="' + shadeColor(d.chain, -40) + '" stroke-width="1.4"/>';
+        s += '<circle cx="0" cy="7" r="5.6" fill="' + d.stone + '" stroke="' + d.stoneDk + '" stroke-width="1"/>';
+        s += '<circle cx="0" cy="7" r="2.1" fill="#ecfdf5" opacity="0.9"/>';
+        s += '<path d="M-4 -0.4 C-5.4 2.6 -5.8 5 -5.4 6.4" stroke="' + d.stoneDk + '" stroke-width="0.8" fill="none" opacity="0.45"/>';
+        s += '<path d="M-3.6 3.4 C-4.8 4 -5.4 5.2 -5 6.4" stroke="' + d.stoneHi + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.85"/>';
+        s += '<path transform="translate(6.6 3) scale(0.38)" d="' + STAR_PATH + '" fill="' + d.stoneHi + '"/>';
+      } else {
+        s += '<path d="M0 -1 L-5.2 4.6 L-3.4 11 L0 13.6 L3.4 11 L5.2 4.6 Z" fill="' + d.stone + '" stroke="' + d.stoneDk
+          + '" stroke-width="1" stroke-linejoin="round"/>';
+        s += '<path d="M-3.5 4.6 L-2.4 10.6 M3.5 4.6 L2.4 10.6 M-3.2 7.6 L3.2 7.6" stroke="' + d.stoneHi + '" stroke-width="0.9" opacity="0.75"/>';
+        s += '<circle cx="-1.8" cy="5.6" r="1.3" fill="#ffffff" opacity="0.9"/>';
+        s += '<ellipse cx="0" cy="-1.4" rx="2.6" ry="1.6" fill="' + d.chain + '" stroke="' + shadeColor(d.chain, -60) + '" stroke-width="0.8"/>';
       }
-      s += miniFlower(63, 100, 4.2, '#fb7185', '#fde047');
-      s += miniFlower(80, 96.5, 3.8, '#ffffff', '#fbbf24');
-      s += miniFlower(97, 100, 4.2, '#f9a8d4', '#fde047');
       s += '</g>';
+      return s;
+    }
+
+    /* ---- 戴在脖子上的鲜花花环（同样只露前半圈） ---- */
+    function renderWreath(standing) {
+      const r = neckRing(standing);
+      let s = '<ellipse cx="80" cy="' + r.cy + '" rx="' + r.rx + '" ry="' + r.ry
+        + '" fill="none" stroke="#15803d" stroke-width="3"/>';
+      const n = 12;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const x = fnum(r.cx + Math.cos(a) * r.rx), y = fnum(r.cy + Math.sin(a) * r.ry);
+        if (i % 3 === 1) {
+          s += miniFlower(x, y, 3.6, i % 6 === 1 ? '#fb7185' : '#f9a8d4', '#fde047');
+        } else {
+          s += '<ellipse cx="' + x + '" cy="' + y + '" rx="3.3" ry="2.2" fill="' + (i % 2 ? '#4ade80' : '#22c55e')
+            + '" stroke="#15803d" stroke-width="0.5" transform="rotate(' + Math.round(a * 57.3 + 90) + ' ' + x + ' ' + y + ')"/>';
+        }
+      }
+      return s;
+    }
+
+    /* ---- 手链：绕在小手腕一圈，只看到靠我们这一半（后面那半被手腕挡住了） ---- */
+    function renderBracelet(d, cx, cy, rx, ry) {
+      const lx = fnum(cx - rx), rx2 = fnum(cx + rx), yc = fnum(cy);
+      /* 下半圈（露出来的）+ 两侧往上一点点，看着像绕过去收进手腕两侧 */
+      const front = 'M' + lx + ' ' + yc + ' A' + rx + ' ' + ry + ' 0 0 0 ' + rx2 + ' ' + yc
+        + ' C' + fnum(cx + rx + 1.8) + ' ' + fnum(cy - 3.2) + ' ' + fnum(cx + rx - 0.4) + ' ' + fnum(cy - 4.6)
+        + ' ' + fnum(cx + rx - 2.6) + ' ' + fnum(cy - 2.4);
+      const peek = 'M' + lx + ' ' + yc + ' C' + fnum(cx - rx - 1.8) + ' ' + fnum(cy - 3.2) + ' '
+        + fnum(cx - rx + 0.4) + ' ' + fnum(cy - 4.6) + ' ' + fnum(cx - rx + 2.6) + ' ' + fnum(cy - 2.4);
+      const p = front + peek;
+      let s = '<path d="' + p + '" fill="none" stroke="' + shadeColor(d.chain, -70) + '" stroke-width="3.6" stroke-linecap="round" opacity="0.35"/>';
+      s += '<path d="' + p + '" fill="none" stroke="' + d.chain + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.6 3.2"/>';
+      s += '<circle cx="' + fnum(cx) + '" cy="' + fnum(cy + ry + 1.8) + '" r="2.5" fill="' + d.bead + '" stroke="' + d.beadDk + '" stroke-width="0.8"/>';
+      s += '<circle cx="' + fnum(cx - 0.9) + '" cy="' + fnum(cy + ry + 1) + '" r="0.85" fill="' + d.beadHi + '"/>';
       return s;
     }
 
@@ -1512,6 +1724,102 @@
         + '<path d="M0 0 C6 -5 10 -1 6 3 C3 5.4 0.8 1.6 0 0 Z" fill="#f472b6" stroke="#be123c" stroke-width="0.8"/>'
         + '<circle cx="0" cy="1" r="2" fill="#fde047"/></g>';
       s += '</g>';
+      return s;
+    }
+
+    /* ---- 小墨镜：架在鼻梁上，镜腿往耳朵那边绕（画在脸的最上层） ---- */
+    function renderShades(g) {
+      const EY = 59, LX = 62, RX = 98;
+      let s = '';
+      /* 镜腿：从镜片外缘斜上去，末端收在脸的边上（像架在耳朵上） */
+      s += '<path d="M' + (LX - 11) + ' 56 Q' + (LX - 15) + ' 54 ' + (LX - 15.5) + ' 51" fill="none" stroke="' + g.frame + '" stroke-width="2.8" stroke-linecap="round"/>';
+      s += '<path d="M' + (RX + 11) + ' 56 Q' + (RX + 15) + ' 54 ' + (RX + 15.5) + ' 51" fill="none" stroke="' + g.frame + '" stroke-width="2.8" stroke-linecap="round"/>';
+      /* 鼻梁 */
+      s += '<path d="M' + (LX + 10) + ' 56.4 Q80 51.4 ' + (RX - 10) + ' 56.4" fill="none" stroke="' + g.frame + '" stroke-width="2.4" stroke-linecap="round"/>';
+      /* 两片镜片（半透明，还能隐约看见眼睛） */
+      for (const ex of [LX, RX]) {
+        s += '<rect x="' + (ex - 11) + '" y="' + (EY - 8) + '" width="22" height="16" rx="6.6" fill="' + g.lens
+          + '" fill-opacity="0.62" stroke="' + g.frame + '" stroke-width="2.6"/>';
+        s += '<path d="M' + (ex - 8) + ' ' + (EY + 5.6) + ' L' + (ex - 1.4) + ' ' + (EY - 5.4)
+          + ' M' + (ex - 3.4) + ' ' + (EY + 6.4) + ' L' + (ex + 3.2) + ' ' + (EY - 4.4)
+          + '" fill="none" stroke="' + g.frameHi + '" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>';
+      }
+      return s;
+    }
+
+    /* ---- 高跟鞋：穿上就看不到肉爪了，只从鞋口露出一小撮毛 ---- */
+    function renderHeelPair(h, standing) {
+      const k = standing ? 0.5 : 0.62;
+      const baseY = standing ? 146.5 : 143;
+      const one = (X, flip) => (
+        '<g transform="translate(' + X + ' ' + baseY + ') scale(' + (flip ? '-' : '') + k + ' ' + k + ')">'
+        + '<path d="' + HEEL_STEM + '" fill="' + h.dark + '"/>'
+        + '<path d="' + HEEL_SHAPE + '" fill="' + h.cloth + '" stroke="' + h.dark + '" stroke-width="1.1" stroke-linejoin="round"/>'
+        + '<path d="M8.6 9.4 C10.8 11.4 13.8 13.4 17.4 15" fill="none" stroke="' + h.hi + '" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>'
+        + '<ellipse cx="7.6" cy="8.8" rx="2.1" ry="1.5" fill="' + h.buckle + '" stroke="' + shadeColor(h.buckle, -70) + '" stroke-width="0.6"/>'
+        + '</g>'
+      );
+      return standing ? one(78, true) + one(82, false) : one(77, true) + one(86, false);
+    }
+
+    /* ---- 握住东西的小爪子：手背压住握把，四根指头搭在上面，再露一点粉肉垫 ---- */
+    function pawGrip(cx, cy, furDk, belly, bellyDk) {
+      let s = '<g>';
+      s += '<ellipse cx="' + fnum(cx) + '" cy="' + fnum(cy + 2.4) + '" rx="6.6" ry="6.2" fill="' + furDk
+        + '" stroke="' + shadeColor(furDk, -38) + '" stroke-width="0.8"/>';
+      for (let i = 0; i < 4; i++) {
+        const fx = fnum(cx - 4.8 + i * 3.2);
+        s += '<ellipse cx="' + fx + '" cy="' + fnum(cy - 0.6) + '" rx="1.9" ry="2.7" fill="' + belly
+          + '" stroke="' + bellyDk + '" stroke-width="0.7"/>';
+      }
+      s += '<ellipse cx="' + fnum(cx + 4.8) + '" cy="' + fnum(cy + 2.8) + '" rx="2.3" ry="1.9" fill="' + belly
+        + '" stroke="' + bellyDk + '" stroke-width="0.7" transform="rotate(30 ' + fnum(cx + 4.8) + ' ' + fnum(cy + 2.8) + ')"/>';
+      s += '<ellipse cx="' + fnum(cx) + '" cy="' + fnum(cy + 4.4) + '" rx="3.4" ry="2.3" fill="#f9a8b8" opacity="0.85"/>';
+      s += '</g>';
+      return s;
+    }
+
+    /* ---- 握在小爪子里的帅气玩具（手枪 / 双截棍 / 大刀） ---- */
+    function renderWeapon(id, furDk, belly, bellyDk, standing) {
+      const w = weaponOf(id);
+      if (!w) return '';
+      /* 握的手抬高一点：坐在地上的时候，小爪子要举在腿中间，不然会盖住脚上的鞋 */
+      const hx = standing ? 113 : 97;
+      const hy = standing ? 116 : 140;
+      let s = '';
+      if (id === 'wp_gun') {
+        s += '<g transform="translate(' + hx + ' ' + hy + ') rotate(-18)">';
+        s += '<path d="M-1.6 -3.6 L3.4 -3.6 L6 9 C6.2 11 4.6 12.2 2.6 12 C0.8 11.8 -0.4 10.6 -0.6 8.6 Z" fill="' + w.grip
+          + '" stroke="' + shadeColor(w.grip, -70) + '" stroke-width="0.9" stroke-linejoin="round"/>';
+        s += '<rect x="-5.4" y="-11" width="22" height="8" rx="3" fill="' + w.body + '" stroke="' + w.bodyDk + '" stroke-width="1"/>';
+        s += '<rect x="13.6" y="-10" width="9" height="4.6" rx="2.3" fill="' + w.bodyDk + '"/>';
+        s += '<circle cx="22" cy="-7.7" r="2.2" fill="' + w.accent + '" stroke="' + shadeColor(w.accent, -70) + '" stroke-width="0.8"/>';
+        s += '<path d="M3 -2.2 C6.4 -2.2 7 1.6 4.4 2.4" fill="none" stroke="' + w.bodyDk + '" stroke-width="1.3" stroke-linecap="round"/>';
+        s += '<path transform="translate(5 -7.4) scale(0.5)" d="' + STAR_PATH + '" fill="' + w.accent + '"/>';
+        s += '<rect x="-3.4" y="-9.6" width="17" height="1.8" rx="0.9" fill="#ffffff" opacity="0.45"/>';
+        s += '</g>';
+      } else if (id === 'wp_nunchaku') {
+        s += '<g transform="translate(' + hx + ' ' + hy + ')">';
+        s += '<path d="M2 4 C10 -2 18 -10 24 -17" fill="none" stroke="' + w.stick + '" stroke-width="6" stroke-linecap="round"/>';
+        s += '<path d="M0.6 5.4 C8.6 -0.6 17 -8.6 22.6 -15.8" fill="none" stroke="' + w.stickHi + '" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>';
+        s += '<circle cx="21.8" cy="-19.6" r="1.4" fill="none" stroke="' + w.ring + '" stroke-width="1.5"/>';
+        s += '<path d="M24 -17 C27 -20 29 -18.6 31 -15" fill="none" stroke="' + w.ring + '" stroke-width="1.5" stroke-linecap="round"/>';
+        s += '<path d="M33 -12 C37 -6 40 0 42 7" fill="none" stroke="' + w.stick + '" stroke-width="6" stroke-linecap="round"/>';
+        s += '<path d="M31.6 -13.2 C35.6 -7.2 38.6 -1.2 40.6 5.8" fill="none" stroke="' + w.stickHi + '" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>';
+        s += '</g>';
+      } else {
+        s += '<g transform="translate(' + hx + ' ' + hy + ') rotate(-34)">';
+        s += '<rect x="-14" y="-2.6" width="17" height="5.2" rx="2.6" fill="' + w.grip + '" stroke="#7f1d1d" stroke-width="0.9"/>';
+        s += '<circle cx="-14" cy="0" r="2.8" fill="' + w.guard + '" stroke="#b45309" stroke-width="0.8"/>';
+        s += '<ellipse cx="4" cy="0" rx="2.4" ry="6" fill="' + w.guard + '" stroke="#b45309" stroke-width="0.9"/>';
+        s += '<path d="M5.6 -3 L42 -4 C48 -3.8 50 -2 47.6 0.8 L44.6 3 C36 4.2 12 4 5.6 2.6 Z" fill="' + w.blade
+          + '" stroke="' + w.edge + '" stroke-width="1" stroke-linejoin="round"/>';
+        s += '<path d="M7 -1.4 L46 -1.6" fill="none" stroke="' + w.bladeHi + '" stroke-width="1.4" stroke-linecap="round" opacity="0.95"/>';
+        s += '<path d="M7 1.4 L44 2" fill="none" stroke="' + w.edge + '" stroke-width="0.9" stroke-linecap="round" opacity="0.55"/>';
+        s += '</g>';
+      }
+      /* 最后把小爪子画上去 —— 手压在握把上，看着才是「握住」而不是「浮在旁边」 */
+      s += pawGrip(hx, hy + 3, furDk, belly, bellyDk);
       return s;
     }
 
@@ -1740,6 +2048,13 @@
       /* 穿了花裙子就站起来，像人一样站着，裙摆一直拖到地上 */
       const dressId = wear.filter(id => DRESS_IDS.indexOf(id) >= 0).slice(-1)[0];
       const standing = !!dressId;
+      /* 首饰 / 鞋子 / 手里的小道具 */
+      const heelId = wear.filter(id => HEEL_IDS.indexOf(id) >= 0).slice(-1)[0];
+      const necklaceId = wear.filter(id => NECKLACE_IDS.indexOf(id) >= 0).slice(-1)[0];
+      const glassesId = wear.filter(id => GLASSES_IDS.indexOf(id) >= 0).slice(-1)[0];
+      const weaponId = wear.filter(id => WEAPON_IDS.indexOf(id) >= 0).slice(-1)[0];
+      const bracelets = wear.filter(id => BRACELET_IDS.indexOf(id) >= 0);
+      const furDk = shadeColor(b.body, -45), bellyDk = shadeColor(b.belly, -45);
       const mood = cat.mood || 0;
       const happy = mood >= 70, sad = mood < 30;
       const u = uid || cat.childId || 'c';
@@ -1879,9 +2194,14 @@
         /* 领口弧线 + 上身轮廓收边 */
         s += '<path d="M68 77 Q80 84 92 77" fill="none" stroke="' + dObj.dark + '" stroke-width="2.4" stroke-linecap="round"/>';
         s += '<path d="' + BODY + '" fill="none" stroke="' + dObj.dark + '" stroke-width="1.2" opacity="0.5"/>';
-        /* 裙摆下顶出来的两只小脚尖 */
-        s += '<ellipse cx="72" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
-        s += '<ellipse cx="88" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
+        /* 裙摆下顶出来的两只小脚尖（穿了高跟鞋就看不见肉爪了） */
+        if (heelId) {
+          s += '<ellipse cx="72" cy="151" rx="6.4" ry="3.6" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+          s += '<ellipse cx="88" cy="151" rx="6.4" ry="3.6" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+        } else {
+          s += '<ellipse cx="72" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+          s += '<ellipse cx="88" cy="154" rx="6.8" ry="3.8" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+        }
         /* 前爪像人的手一样垂在裙子两侧 */
         /* 手臂从腰侧长出来（不从肩膀横穿胸口，会盖住裙子抹胸） */
         const armL = 'M61 92 C53 97 47 106 47 116', armR = 'M99 92 C107 97 113 106 113 116';
@@ -1892,18 +2212,39 @@
         s += '<ellipse cx="47" cy="117" rx="8.5" ry="6.5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
         s += '<ellipse cx="113" cy="117" rx="8.5" ry="6.5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
         s += '<g stroke="' + shadeColor(b.belly, -55) + '" stroke-width="1.1" opacity="0.55" fill="none" stroke-linecap="round"><path d="M43 114.5 v3.6"/><path d="M47 115 v4"/><path d="M51 114.5 v3.6"/><path d="M109 114.5 v3.6"/><path d="M113 115 v4"/><path d="M117 114.5 v3.6"/></g>';
+        /* 手链：戴在小手腕上（站姿的手垂在裙侧，手腕更靠上） */
+        bracelets.forEach((bid, i) => {
+          const d = braceletOf(bid);
+          if (!d) return;
+          s += renderBracelet(d, 48, 111 - i * 3.4, 8.4, 4.6);
+          s += renderBracelet(d, 112, 111 - i * 3.4, 8.4, 4.6);
+        });
+        if (heelId) s += renderHeelPair(heelOf(heelId), standing);
       } else {
         /* 坐姿：前腿（直立）+ 白爪 */
-        s += '<rect x="59.5" y="112" width="15" height="38" rx="7.5" fill="' + furB + '" stroke="' + shadeColor(b.body, -45) + '" stroke-width="0.8"/>';
-        s += '<rect x="85.5" y="112" width="15" height="38" rx="7.5" fill="' + furB + '" stroke="' + shadeColor(b.body, -45) + '" stroke-width="0.8"/>';
-        s += '<ellipse cx="67" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
-        s += '<ellipse cx="93" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + shadeColor(b.belly, -45) + '" stroke-width="0.8"/>';
-        s += '<g stroke="' + shadeColor(b.belly, -55) + '" stroke-width="1.1" opacity="0.55" fill="none" stroke-linecap="round"><path d="M63.5 147.5 v3"/><path d="M67 147.5 v3.4"/><path d="M70.5 147.5 v3"/><path d="M89.5 147.5 v3"/><path d="M93 147.5 v3.4"/><path d="M96.5 147.5 v3"/></g>';
+        s += '<rect x="59.5" y="112" width="15" height="38" rx="7.5" fill="' + furB + '" stroke="' + furDk + '" stroke-width="0.8"/>';
+        s += '<rect x="85.5" y="112" width="15" height="38" rx="7.5" fill="' + furB + '" stroke="' + furDk + '" stroke-width="0.8"/>';
+        if (heelId) {
+          /* 脚抬进鞋里，只从鞋口露出一小撮白毛 */
+          s += '<ellipse cx="67" cy="146" rx="9.6" ry="4.6" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+          s += '<ellipse cx="93" cy="146" rx="9.6" ry="4.6" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+        } else {
+          s += '<ellipse cx="67" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+          s += '<ellipse cx="93" cy="149" rx="10" ry="5" fill="' + b.belly + '" stroke="' + bellyDk + '" stroke-width="0.8"/>';
+          s += '<g stroke="' + shadeColor(b.belly, -55) + '" stroke-width="1.1" opacity="0.55" fill="none" stroke-linecap="round"><path d="M63.5 147.5 v3"/><path d="M67 147.5 v3.4"/><path d="M70.5 147.5 v3"/><path d="M89.5 147.5 v3"/><path d="M93 147.5 v3.4"/><path d="M96.5 147.5 v3"/></g>';
+        }
+        /* 手链：两只小手腕上都戴 */
+        bracelets.forEach((bid, i) => {
+          const d = braceletOf(bid);
+          if (!d) return;
+          s += renderBracelet(d, 67, 130 - i * 3.6, 9.8, 5.4);
+          s += renderBracelet(d, 93, 130 - i * 3.6, 9.8, 5.4);
+        });
+        if (heelId) s += renderHeelPair(heelOf(heelId), standing);
       }
-      /* 抱在爪子里的花束 */
-      if (wear.indexOf('fl_bouquet') >= 0) s += renderBouquet(standing ? 128 : 146);
-      /* 脖子上的鲜花花环 */
-      if (wear.indexOf('fw_wreath') >= 0) s += renderWreath(standing ? -24 : 0);
+      /* 握在小爪子里的玩具（手里一次只拿一样） */
+      if (weaponId) s += renderWeapon(weaponId, furDk, b.belly, bellyDk, standing);
+      else if (wear.indexOf('fl_bouquet') >= 0) s += renderBouquet(standing ? 128 : 146);
       /* 身体外缘细毛（左右两侧 + 底部） */
       if (standing) {
         s += furRing(80, 104, 24, 34, 190, 350, 20, 5, shadeColor(b.body, -52), shadeColor(b.body, 40), 53);
@@ -1913,6 +2254,10 @@
         s += furRing(80, 124, 33, 27, 196, 344, 22, 5, shadeColor(b.body, -52), shadeColor(b.body, 40), 53);
         s += furRing(80, 96, 19, 8, 172, 368, 14, 5.5, shadeColor(b.belly, -58), shadeColor(b.belly, 32), 61, 1.1);
       }
+      /* 脖子上的项链 / 花环：这是整圈，但上半圈会绕到脖子后面被脑袋压住，
+         露出来的只有胸前那一段和垂下来的坠子 */
+      if (necklaceId) s += renderNecklace(necklaceOf(necklaceId), standing);
+      else if (wear.indexOf('fw_wreath') >= 0) s += renderWreath(standing);
       s += '</g>';
 
       /* ---------- 头（大头比例，整体上移 3 露出脖子） ---------- */
@@ -1991,6 +2336,8 @@
         }
       }
       s += '</g>';
+      /* 小墨镜：架在鼻梁上（镜片半透明，还看得见眼睛） */
+      if (glassesId) s += renderShades(glassesOf(glassesId));
       /* 腮红（常驻，开心更浓） */
       s += '<ellipse cx="47" cy="71" rx="7.5" ry="4.2" fill="#fb7185" opacity="' + (happy ? 0.5 : 0.32) + '"/>';
       s += '<ellipse cx="113" cy="71" rx="7.5" ry="4.2" fill="#fb7185" opacity="' + (happy ? 0.5 : 0.32) + '"/>';
@@ -2790,11 +3137,11 @@
             }
             if (item.kind === 'wear') {
               if (!cat.wearing) cat.wearing = [];
-              /* 身上只能穿一件：买了新裙子就换下旧的 */
-              if (item.slot === 'body') {
+              /* 一个位置只戴一件：买了新的就换下旧的（裙子、项链、墨镜、鞋子、手里拿的） */
+              if (CAT_EXCLUSIVE_SLOTS.indexOf(item.slot) >= 0) {
                 cat.wearing = cat.wearing.filter(id => {
                   const it = CAT_ITEMS.find(x => x.id === id);
-                  return !(it && it.slot === 'body');
+                  return !(it && it.slot === item.slot);
                 });
               }
               if (!cat.wearing.includes(item.id)) cat.wearing.push(item.id);
@@ -2863,11 +3210,11 @@
           if (i >= 0) {
             cat.wearing.splice(i, 1);
           } else {
-            /* 身上一次只能穿一件，换上新裙子就脱下旧的 */
-            if (item && item.slot === 'body') {
+            /* 一个位置只戴一件：戴上新的就摘下旧的 */
+            if (item && CAT_EXCLUSIVE_SLOTS.indexOf(item.slot) >= 0) {
               cat.wearing = cat.wearing.filter(id => {
                 const it = CAT_ITEMS.find(x => x.id === id);
-                return !(it && it.slot === 'body');
+                return !(it && it.slot === item.slot);
               });
             }
             cat.wearing.push(itemId);
@@ -2884,7 +3231,8 @@
             if (!it || it.kind !== 'wear') return false;
             if (part === 'head') return it.slot === 'head';
             if (part === 'body') return it.slot === 'body';
-            return it.slot !== 'head' && it.slot !== 'body';
+            if (part === 'paw') return it.slot === 'wrist' || it.slot === 'feet' || it.slot === 'paw';
+            return ['neck', 'face', 'head-deco', 'head-cover', 'other'].indexOf(it.slot) >= 0;
           });
         },
         catWearCount(part) { return this.catWearOwned(part).length; },
